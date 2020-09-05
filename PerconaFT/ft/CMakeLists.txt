@@ -93,4 +93,15 @@ target_link_libraries(ft LINK_PRIVATE util_static lzma snappy ${LIBTOKUPORTABILI
 target_link_libraries(ft LINK_PUBLIC z)
 target_link_libraries(ft_static LINK_PRIVATE lzma snappy)
 
+install(
+    FILES ft.h
+    DESTINATION include/
+    COMPONENT tokukv_headers
+)
+install(
+    FILES cachetable/cachetable.h
+    DESTINATION include/ft/cachetable/
+    COMPONENT tokukv_headers
+)
+
 add_subdirectory(tests)

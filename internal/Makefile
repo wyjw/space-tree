@@ -1,11 +1,14 @@
-CC=clang
-CFLAGS=-I.
-DEPS = ftstar.h
+CC=clang++
+CFLAGS=-I/home/ywu/ddp/userspace_tree/PerconaFT/build/buildheader/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/
+DEPS = ftstar.hpp
+LIBS = -L/home/ywu/ddp/userspace_tree/PerconaFT/build/ft/
+OBJ = ftstar.o
 
-all: ftstar
+%.o: %.cc $(DEPS)
+	$(CC) -o $@ $< -static $(CFLAGS) $(LIBS) -lft
 
-%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+ftstar: $(OBJ)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	rm -f *.o
+	rm -f ftstar *.o
