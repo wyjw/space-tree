@@ -46,6 +46,11 @@ if (NOT DEFINED MYSQL_PROJECT_NAME_DOCSTRING)
     COMPONENT tokukv_headers
     )
   install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/toku_config.h"
+    DESTINATION include/portability/
+    COMPONENT tokukv_headers
+    )
+  install(
     TARGETS ${LIBTOKUPORTABILITY}_static
     DESTINATION ${INSTALL_LIBDIR}
     COMPONENT tokukv_libs_static
@@ -60,5 +65,16 @@ else ()
                COMPILE_DEFINITIONS MYSQL_TOKUDB_ENGINE=1 )
   target_link_libraries(${LIBTOKUPORTABILITY} LINK_PRIVATE mysys)
 endif ()
+
+install(
+  FILES memory.h toku_stdlib.h toku_stdint.h
+  DESTINATION include/portability/
+  COMPONENT tokukv_headers
+)
+install(
+  FILES toku_assert.h toku_portability.h toku_atomic.h toku_htod.h toku_debug_sync.h toku_list.h toku_pthread.h toku_time.h toku_os.h toku_race_tools.h toku_htonl.h toku_os_types.h toku_random.h toku_byteswap.h toku_instr_mysql.h toku_path.h toku_crash.h toku_instrumentation.h 
+  DESTINATION include/
+  COMPONENT tokukv_headers
+)
 
 add_subdirectory(tests)

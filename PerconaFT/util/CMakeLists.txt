@@ -31,4 +31,10 @@ if (NOT DEFINED MYSQL_PROJECT_NAME_DOCSTRING)
     )
 endif ()
 
+FILE(GLOB utils_h *.h)
+install(
+    FILES ${utils_h}
+    DESTINATION include/util/
+    COMPONENT tokukv_headers
+)
 add_subdirectory(tests)

@@ -94,13 +94,24 @@ target_link_libraries(ft LINK_PUBLIC z)
 target_link_libraries(ft_static LINK_PRIVATE lzma snappy)
 
 install(
-    FILES ft.h
+    FILES "ft.h"
     DESTINATION include/
     COMPONENT tokukv_headers
 )
 install(
-    FILES cachetable/cachetable.h
+    FILES "cachetable/cachetable.h"
     DESTINATION include/ft/cachetable/
+    COMPONENT tokukv_headers
+)
+install(
+    FILES "logger/logger.h"
+    DESTINATION include/ft/logger/
+    COMPONENT tokukv_headers
+)
+FILE(GLOB ser_h serialize/*.h)
+install(
+    FILES serialize/block_table.h serialize/block_allocator.h serialize/ft-serialize.h ${ser_h}
+    DESTINATION include/ft/serialize/
     COMPONENT tokukv_headers
 )
 
