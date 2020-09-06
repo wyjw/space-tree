@@ -1,14 +1,17 @@
 CC=clang++
-CFLAGS=-I/home/ywu/ddp/userspace_tree/PerconaFT/build/buildheader/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/
+CFLAGS=-I/home/ywu/ddp/userspace_tree/PerconaFT/build/buildheader/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/portability/
 DEPS = ftstar.hpp
 LIBS = -L/home/ywu/ddp/userspace_tree/PerconaFT/build/ft/
 OBJ = ftstar.o
 
-%.o: %.cc $(DEPS)
-	$(CC) -o $@ $< -static $(CFLAGS) $(LIBS) -lft
+ftstar.o: ftstar.cc ftstar.hpp
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft
 
-ftstar: $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS)
+#ftstar: $(OBJ)
+#	$(CC) -o ftstar $(LIBS) $^ -v 
+
+testo: fttest.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft
 
 clean:
 	rm -f ftstar *.o

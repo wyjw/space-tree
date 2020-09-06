@@ -36,7 +36,7 @@ add_custom_target(generate_config_h DEPENDS
 # detect when we are being built as a subproject
 if (NOT DEFINED MYSQL_PROJECT_NAME_DOCSTRING)
   install(
-    FILES toku_os_types.h toku_time.h toku_list.h toku_os.h
+    FILES toku_os_types.h toku_time.h toku_os.h
     DESTINATION include
     COMPONENT tokukv_headers
     )
@@ -67,12 +67,12 @@ else ()
 endif ()
 
 install(
-  FILES memory.h toku_stdlib.h toku_stdint.h
+  FILES memory.h toku_stdlib.h toku_stdint.h toku_pthread.h toku_htonl.h toku_assert.h toku_portability.h toku_list.h toku_race_tools.h 
   DESTINATION include/portability/
   COMPONENT tokukv_headers
 )
 install(
-  FILES toku_assert.h toku_portability.h toku_atomic.h toku_htod.h toku_debug_sync.h toku_list.h toku_pthread.h toku_time.h toku_os.h toku_race_tools.h toku_htonl.h toku_os_types.h toku_random.h toku_byteswap.h toku_instr_mysql.h toku_path.h toku_crash.h toku_instrumentation.h 
+  FILES toku_atomic.h toku_htod.h toku_debug_sync.h toku_time.h toku_os.h toku_os_types.h toku_random.h toku_byteswap.h toku_instr_mysql.h toku_path.h toku_crash.h toku_instrumentation.h 
   DESTINATION include/
   COMPONENT tokukv_headers
 )

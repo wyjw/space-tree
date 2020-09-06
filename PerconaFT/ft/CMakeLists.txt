@@ -98,13 +98,23 @@ install(
     DESTINATION include/
     COMPONENT tokukv_headers
 )
+
+FILE(GLOB ft_h *.h)
+list(REMOVE_ITEM ft_h "ft.h")
+install(
+    FILES ${ft_h}
+    DESTINATION include/ft
+    COMPONENT tokukv_headers
+)
 install(
     FILES "cachetable/cachetable.h"
     DESTINATION include/ft/cachetable/
     COMPONENT tokukv_headers
 )
+
+FILE(GLOB log_h logger/*.h)
 install(
-    FILES "logger/logger.h"
+    FILES ${log_h}
     DESTINATION include/ft/logger/
     COMPONENT tokukv_headers
 )
@@ -112,6 +122,13 @@ FILE(GLOB ser_h serialize/*.h)
 install(
     FILES serialize/block_table.h serialize/block_allocator.h serialize/ft-serialize.h ${ser_h}
     DESTINATION include/ft/serialize/
+    COMPONENT tokukv_headers
+)
+
+FILE(GLOB txn_h txn/*.h)
+install(
+    FILES ${txn_h}
+    DESTINATION include/ft/txn/
     COMPONENT tokukv_headers
 )
 

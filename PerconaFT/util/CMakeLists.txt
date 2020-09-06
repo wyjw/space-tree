@@ -33,7 +33,7 @@ endif ()
 
 FILE(GLOB utils_h *.h)
 install(
-    FILES ${utils_h}
+    FILES ${utils_h} omt.cc
     DESTINATION include/util/
     COMPONENT tokukv_headers
 )
