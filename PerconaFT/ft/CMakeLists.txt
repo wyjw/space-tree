@@ -106,8 +106,10 @@ install(
     DESTINATION include/ft
     COMPONENT tokukv_headers
 )
+
+FILE(GLOB cachetable_h cachetable/*.h)
 install(
-    FILES "cachetable/cachetable.h"
+    FILES ${cachetable_h}
     DESTINATION include/ft/cachetable/
     COMPONENT tokukv_headers
 )

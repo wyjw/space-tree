@@ -1,17 +1,21 @@
+FTDIR = /home/ywu/ddp/userspace_tree
+
 CC=clang++
-CFLAGS=-I/home/ywu/ddp/userspace_tree/PerconaFT/build/buildheader/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/ -I/home/ywu/ddp/userspace_tree/PerconaFT/prefix/include/portability/
+CFLAGS= -I$(FTDIR)/PerconaFT/build/buildheader/ -I$(FTDIR)/PerconaFT/build/ -I$(FTDIR)/PerconaFT/prefix/include/ -I$(FTDIR)/PerconaFT/prefix/include/portability/ -I$(FTDIR)/PerconaFT/prefix/include/ft/ -I$(FTDIR)/PerconaFT/portability -I$(FTDIR)/PerconaFT -I$(FTDIR)/PerconaFT/prefix/include/util/ -I$(FTDIR)/PerconaFT/util/
 DEPS = ftstar.hpp
-LIBS = -L/home/ywu/ddp/userspace_tree/PerconaFT/build/ft/
+LIBS = -L$(FTDIR)/PerconaFT/build/ft/ -L$(FTDIR)/PerconaFT/build/portability/
 OBJ = ftstar.o
 
-ftstar.o: ftstar.cc ftstar.hpp
-	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft
+all: ftstar fttest
+
+ftstar: ftstar.cc ftstar.hpp
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 #ftstar: $(OBJ)
 #	$(CC) -o ftstar $(LIBS) $^ -v 
 
-testo: fttest.cc
-	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft
+fttest: fttest.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 clean:
 	rm -f ftstar *.o
