@@ -6,7 +6,7 @@ DEPS = ftstar.hpp
 LIBS = -L$(FTDIR)/PerconaFT/build/ft/ -L$(FTDIR)/PerconaFT/build/portability/
 OBJ = ftstar.o
 
-all: ftstar fttest
+all: ftstar fttest fttest_bench fttest_block_alloc
 
 ftstar: ftstar.cc ftstar.hpp
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
@@ -17,5 +17,10 @@ ftstar: ftstar.cc ftstar.hpp
 fttest: fttest.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
+fttest_bench: fttest_bench.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
+
+fttest_block_alloc: fttest_block_alloc.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 clean:
-	rm -f ftstar *.o
+	rm -f ftstar fftest fttest_block_alloc *.o
