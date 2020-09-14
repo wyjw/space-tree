@@ -39,8 +39,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 /* Insert a bunch of stuff */
 #include <toku_time.h>
 
-static const char *fname ="sinsert.ft";
 #define TOKU_TEST_FILENAME "sinsert.ft"
+static const char *fname = TOKU_TEST_FILENAME;
 
 enum { SERIAL_SPACING = 1<<6 };
 int64_t ITEMS_TO_INSERT_PER_ITERATION = 1<<20;
@@ -56,6 +56,7 @@ static int keysize = sizeof (long long);
 static int valsize = sizeof (long long);
 static int do_verify =0; /* Do a slow verify after every k inserts. */
 static int verify_period = 256; /* how many inserts between verifies. */
+static int cachesize = 4096*4096*10;
 
 static int do_serial = 1;
 static int do_random = 1;
@@ -63,10 +64,10 @@ static int do_random = 1;
 static CACHETABLE ct;
 static FT_HANDLE t;
 
-static void setup (void) {
+static void setup (int cachesize) {
     int r;
     unlink(fname);
-    toku_cachetable_create(&ct, 0, ZERO_LSN, nullptr);
+    toku_cachetable_create(&ct, cachesize, ZERO_LSN, nullptr);
     r = toku_open_ft_handle(fname, 1, &t, nodesize, basementnodesize, compression_method, ct, nullptr, toku_builtin_compare_fun); assert(r==0);
 }
 
@@ -205,6 +206,11 @@ test_main (int argc, const char *argv[]) {
 	    verbose++;
 	} else if (strcmp(arg, "-q")==0) {
 	    verbose = 0;
+	} else if (strcmp(arg, "-c")==0) {
+	    if (i+1 < argc) {
+		i++;
+	    	cachesize =  atoi(argv[i]);
+	    }
 	} else {
 	    usage();
 	    return 1;
@@ -229,11 +235,12 @@ test_main (int argc, const char *argv[]) {
 	printf("nodesize=%d\n", nodesize);
 	printf("keysize=%d\n", keysize);
 	printf("valsize=%d\n", valsize);
+	printf("cachesize=%d\n", cachesize);
 	printf("Serial and random insertions of %" PRId64 " per batch\n", ITEMS_TO_INSERT_PER_ITERATION);
         fflush(stdout);
     }
     printf("Filename is %s\n", fname);
-    setup();
+    setup(cachesize);
     gettimeofday(&t1,0);
     biginsert(total_n_items, &t1);
     gettimeofday(&t2,0);
