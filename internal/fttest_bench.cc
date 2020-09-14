@@ -231,6 +231,7 @@ test_main (int argc, const char *argv[]) {
 	printf("Serial and random insertions of %" PRId64 " per batch\n", ITEMS_TO_INSERT_PER_ITERATION);
         fflush(stdout);
     }
+    printf("Filename is %s\n", fname);
     setup();
     gettimeofday(&t1,0);
     biginsert(total_n_items, &t1);
