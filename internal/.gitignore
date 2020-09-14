@@ -1,3 +1,4 @@
 ftstar
-fttest
+fttest*
+!fttest*.cc
 *.o

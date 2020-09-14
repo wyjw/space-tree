@@ -40,6 +40,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include <toku_time.h>
 
 static const char *fname ="sinsert.ft";
+#define TOKU_TEST_FILENAME "sinsert.ft"
 
 enum { SERIAL_SPACING = 1<<6 };
 int64_t ITEMS_TO_INSERT_PER_ITERATION = 1<<20;
