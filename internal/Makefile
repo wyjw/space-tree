@@ -21,5 +21,8 @@ fttest_bench: fttest_bench.cc
 fttest_block_alloc: fttest_block_alloc.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
+ft_serialize: ft_serialize.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
+
 clean:
 	rm -f ftstar fftest fttest_block_alloc fftest_bench *.o *.ft
