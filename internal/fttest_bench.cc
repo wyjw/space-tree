@@ -39,7 +39,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 /* Insert a bunch of stuff */
 #include <toku_time.h>
 
-#define TOKU_TEST_FILENAME "sinsert.ft"
+#define TOKU_TEST_FILENAME "/media/nvme/swapfile"
 static const char *fname = TOKU_TEST_FILENAME;
 
 enum { SERIAL_SPACING = 1<<6 };
