@@ -34,7 +34,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #ident "Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved."
 
-#include "test-benchmark.h"
+#include "test_benchmark.h"
 #include "bndata.h"
 
 #ifndef MIN
