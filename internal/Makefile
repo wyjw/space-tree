@@ -25,4 +25,4 @@ ft_serialize: ft_serialize.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 clean:
-	rm -f ftstar fftest fttest_block_alloc fftest_bench *.o *.ft
+	rm -f ftstar fftest ft_serialize fttest_block_alloc fftest_bench *.o *.ft
