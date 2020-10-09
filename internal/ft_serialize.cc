@@ -41,7 +41,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
-static TOKU_TEST_FILENAME = "a.txt";
+#define TOKU_TEST_FILENAME "a.txt";
 
 static size_t le_add_to_bn(bn_data *bn,
                            uint32_t idx,
@@ -238,7 +238,7 @@ static void test_serialize_leaf_check_msn(enum ftnode_verify_type bft,
     sn.layout_version_original = FT_LAYOUT_VERSION;
     sn.height = 0;
     sn.n_children = 2;
-    sn.dirty__ = 1;
+    sn.dirty_ = 1;
     sn.oldest_referenced_xid_known = TXNID_NONE;
     MALLOC_N(sn.n_children, sn.bp);
     DBT pivotkey;
