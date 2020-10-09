@@ -41,7 +41,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
-#define TOKU_TEST_FILENAME "a.txt"
+static TOKU_TEST_FILENAME = "a.txt";
 
 static size_t le_add_to_bn(bn_data *bn,
                            uint32_t idx,
