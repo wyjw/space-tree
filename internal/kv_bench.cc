@@ -42,7 +42,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #endif
 const double USECS_PER_SEC = 1000000.0;
 
-#define TOKU_TEST_FILENAME "a.txt"
+#define TOKU_TEST_FILENAME "/dev/treenvme0"
 //#define TOKU_TEST_FILENAME1 "/dev/nvme0n1"
 
 static size_t le_add_to_bn(bn_data *bn,
@@ -134,7 +134,7 @@ static void test_serialize_leaf(int valsize,
                  TXNID_NONE,
                  4 * 1024 * 1024,
                  128 * 1024,
-                 TOKU_NO_COMPRESSION_METHOD,
+                 TOKU_NO_COMPRESSION,
                  16);
     ft_h->cmp.create(long_key_cmp, nullptr);
     ft->ft = ft_h;
