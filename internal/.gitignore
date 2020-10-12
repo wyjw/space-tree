@@ -3,3 +3,4 @@ fttest*
 !fttest*.cc
 *.o
 ft_serialize
+kv_bench
