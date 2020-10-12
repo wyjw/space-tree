@@ -1,4 +1,5 @@
-FTDIR = /home/ywu/ddp/userspace_tree
+# FTDIR = /home/ywu/ddp/userspace_tree
+FTDIR = /home/space-tree
 
 CC=clang++
 CFLAGS= -I$(FTDIR)/PerconaFT/build/buildheader/ -I$(FTDIR)/PerconaFT/build/ -I$(FTDIR)/PerconaFT/prefix/include/ -I$(FTDIR)/PerconaFT/prefix/include/portability/ -I$(FTDIR)/PerconaFT/prefix/include/ft/ -I$(FTDIR)/PerconaFT/portability -I$(FTDIR)/PerconaFT -I$(FTDIR)/PerconaFT/prefix/include/util/ -I$(FTDIR)/PerconaFT/util/
