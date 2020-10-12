@@ -140,10 +140,6 @@ static void test_serialize_leaf(int valsize,
     ft->ft = ft_h;
 
     ft_h->blocktable.create();
-    {
-        int r_truncate = ftruncate(fd, 0);
-        CKERR(r_truncate);
-    }
     // Want to use block #20
     BLOCKNUM b = make_blocknum(0);
     while (b.b < 20) {
