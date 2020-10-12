@@ -134,7 +134,7 @@ static void test_serialize_leaf(int valsize,
                  TXNID_NONE,
                  4 * 1024 * 1024,
                  128 * 1024,
-                 TOKU_DEFAULT_COMPRESSION_METHOD,
+                 TOKU_NO_COMPRESSION_METHOD,
                  16);
     ft_h->cmp.create(long_key_cmp, nullptr);
     ft->ft = ft_h;
