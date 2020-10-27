@@ -1,5 +1,5 @@
 CC=clang
-CLAGS = -Wall -std=c99 -O0 -g -Wconversion -Wextra
+CFLAGS = -I/usr/include/linux/treenvme_ioctl.h -Wall -std=c99 -O0 -g -Wconversion -Wextra
 
 all: clean treenvme_ioctl
 

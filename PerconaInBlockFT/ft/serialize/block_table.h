@@ -176,7 +176,6 @@ class block_table {
         int (*)(uint64_t, int64_t, int64_t, int64_t, int64_t, void *),
         void *);
 
-   private:
     struct block_translation_pair {
         // If in the freelist, use next_free_blocknum, otherwise diskoff.
         union {
@@ -216,6 +215,7 @@ class block_table {
         // block_translation[RESERVED_BLOCKNUM_TRANSLATION].u.diskoff
     };
 
+   private:
     void _create_internal();
     int _translation_deserialize_from_buffer(
         struct translation *t,     // destination into which to deserialize
@@ -275,6 +275,7 @@ class block_table {
     void _mutex_lock();
     void _mutex_unlock();
 
+    public:
     // The current translation is the one used by client threads.
     // It is not represented on disk.
     struct translation _current;

@@ -4,3 +4,6 @@ fttest*
 *.o
 ft_serialize
 kv_bench
+*.txt
+*.swp
+*.o
