@@ -268,6 +268,8 @@ static void test_serialize_nonleaf_two(int valsize,
     ftnode_fetch_extra bfe;
     bfe.create_for_full_read(ft_h);
     gettimeofday(&t[0], NULL);
+    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, ft_h->blocktable._current);
+    gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd2 = NULL;
     r = toku_deserialize_ftnode_from(
         fd, make_blocknum(20), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe); 
