@@ -29,4 +29,4 @@ kv_bench: kv_bench.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 clean:
-	rm -f ftstar fftest ft_serialize fttest_block_alloc fftest_bench *.o *.ft
+	rm -f ftstar fftest ft_serialize fttest_block_alloc fftest_bench kv_bench *.o *.ft
