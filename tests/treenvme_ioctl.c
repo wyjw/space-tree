@@ -13,8 +13,10 @@ struct blck_tbl {
 int main(void) {
 	int fd;
 	
-	struct blck_tbl tbl;	
-	tbl.a = 4;
+	struct treenvme_block_table tbl;	
+	tbl.length_of_array = 4;
+	tbl.smallest = 10;
+	tbl.next_head = 46;
 
 	//for (int i = 0; i)
 	fd = open("/dev/treenvme0", O_RDWR);
