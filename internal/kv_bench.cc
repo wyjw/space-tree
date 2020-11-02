@@ -94,7 +94,7 @@ static void test_serialize_leaf(int valsize,
     sn->layout_version = FT_LAYOUT_VERSION;
     sn->layout_version_original = FT_LAYOUT_VERSION;
     sn->height = 0;
-    sn->n_children = 500;
+    sn->n_children = 8;
     sn->dirty_ = 1;
     sn->oldest_referenced_xid_known = TXNID_NONE;
     MALLOC_N(sn->n_children, sn->bp);
@@ -445,7 +445,7 @@ static void test_serialize_nonleaf_one(int valsize,
     CKERR(r);
     toku::comparator cmp;
     cmp.create(long_key_cmp, nullptr);
-    int nperchild = nelts / 8;
+    int nperchild = nelts / sn.n_children;
     for (int ck = 0; ck < sn.n_children; ++ck) {
         long k;
         NONLEAF_CHILDINFO bnc = BNC(&sn, ck);
@@ -836,10 +836,10 @@ int test_main(int argc __attribute__((__unused__)),
     }
 
     initialize_dummymsn();
-    //test_serialize_leaf(valsize, nelts, entropy, ser_runs, deser_runs);
+    test_serialize_leaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf_one(valsize, nelts, entropy, ser_runs, deser_runs);
-    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs);
+    //test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs);
 	
     return 0;
 }

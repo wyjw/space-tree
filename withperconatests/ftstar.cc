@@ -246,7 +246,14 @@ static void test_serialize_nonleaf_two(int valsize,
     }
 
     struct timeval t[2];
-    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, ft_h->blocktable._current);
+    
+    struct treenvme_block_table tbl;
+    tbl.length_of_array = ft_h->blocktable._current.length_of_array;
+    tbl.smallest = ft_h->blocktable._current.smallest_never_used_blocknum.b; 
+    tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
+    tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd = NULL;
     r = toku_serialize_ftnode_to(
