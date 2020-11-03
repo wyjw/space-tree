@@ -1,4 +1,4 @@
-/* -*- mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/* -*- mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 // vim: ft=cpp:expandtab:ts=8:sw=4:softtabstop=4:
 #ident "$Id$"
 /*======
@@ -36,7 +36,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #ident "Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved."
 
-#include "test.h"
+#include "test_benchmark.h"
 
 bool pf_called;
 
