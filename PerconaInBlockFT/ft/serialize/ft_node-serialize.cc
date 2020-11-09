@@ -165,7 +165,7 @@ toku_maybe_preallocate_in_file (int fd, int64_t size, int64_t expected_size, int
         lazy_assert_zero(r);
     }
     invariant(file_size >= 0);
-    fprintf(stdout, "Expected size of %d and file_size of %d", expected_size, file_size);
+    fprintf(stdout, "Expected size of %d and file_size of %d\n", expected_size, file_size);
     invariant(expected_size == file_size);
     // We want to double the size of the file, or add 16MiB, whichever is less.
     // We emulate calling this function repeatedly until it satisfies the request.

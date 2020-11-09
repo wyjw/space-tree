@@ -516,7 +516,9 @@ void block_table::realloc_on_disk(BLOCKNUM b,
     _verify_valid_freeable_blocknum(t, b);
     _realloc_on_disk_internal(b, size, offset, ft, for_checkpoint);
 
+#ifndef BLOCKFILE
     _ensure_safe_write_unlocked(fd, size, *offset);
+#endif
     _mutex_unlock();
 }
 

@@ -59,6 +59,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #error
 #endif
 
+#define BLOCKFILE 1
+
 struct ft_search;
 
 enum { FT_DEFAULT_FANOUT = 16 };

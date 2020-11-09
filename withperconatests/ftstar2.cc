@@ -229,15 +229,15 @@ static void test_serialize_nonleaf_two(int valsize,
     }*/
     // Want to use block #20
     BLOCKNUM b = make_blocknum(0);
-    while (b.b < deps * 8) {
+    while (b.b < deps * 8 + 20) {
         ft_h->blocktable.allocate_blocknum(&b, ft_h);
     }
-    invariant(b.b == 50);
+    //invariant(b.b == 50);
 
     {
         DISKOFF offset;
         DISKOFF size;
-        ft_h->blocktable.realloc_on_disk(b, 100, &offset, ft_h, fd, false);
+        ft_h->blocktable.realloc_on_disk(b, deps * 8, &offset, ft_h, fd, false);
         invariant(offset ==
                (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
 
@@ -257,14 +257,15 @@ static void test_serialize_nonleaf_two(int valsize,
     ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd = NULL;
-    for (int j = 0; j < deps; j++){
+    for (int j = 0; j < deps * 8; j++){
+    	sn.blocknum.b = 20 + j;
     	for (int i = 0; i < sn1.n_children; ++i) {
-        	BP_BLOCKNUM(&sn1, i).b = i + j;
+        	BP_BLOCKNUM(&sn1, i).b = (i + 20 + j) % (deps * 8);
        	 	BP_STATE(&sn1, i) = PT_AVAIL;
         	set_BNC(&sn1, i, toku_create_empty_nl());
     	}
     	r = toku_serialize_ftnode_to(
-        	fd, make_blocknum(j), &sn, &ndd, true, ft->ft, false); 
+        	fd, make_blocknum(20 + j), &sn, &ndd, true, ft->ft, false); 
     }
     // lookup ndd info
     printf("NDD info: start of %u, size of %u\n", ndd->start, ndd->size);

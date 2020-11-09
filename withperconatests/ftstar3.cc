@@ -245,9 +245,7 @@ static void test_serialize_nonleaf_two(int valsize,
                (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
     }
 
-    struct timeval t[2];
-
-/*    
+    struct timeval t[2];  
     struct treenvme_block_table tbl;
     tbl.length_of_array = ft_h->blocktable._current.length_of_array;
     tbl.smallest = ft_h->blocktable._current.smallest_never_used_blocknum.b; 
@@ -256,7 +254,6 @@ static void test_serialize_nonleaf_two(int valsize,
     tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
 
     ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
-  */
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd = NULL;
     r = toku_serialize_ftnode_to(
@@ -281,11 +278,18 @@ static void test_serialize_nonleaf_two(int valsize,
     //ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, ft_h->blocktable._current);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd2 = NULL;
-    r = toku_deserialize_ftnode_from(
-        fd, make_blocknum(20), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe); 
-    //r = toku_deserialize_ftnode_from(
-    //   fd, make_blocknum(50), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe);
-    
+    int x;
+    for (int i = 0; i < 4; i ++) {
+    	r = toku_deserialize_ftnode_from(
+        	fd, make_blocknum(20), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe); 
+	bool doprefetch = false;
+	//struct unlock_ftnode_extra unlock_extra = {ft_h, dn, false};
+	//struct unlockers unlockers = {true, unlock_ftnode_fun, (void *)&unlock_extra, (UNLOCKERS)NULL};
+    	//x = ft_search_child(ft_h, dn, 3, bfe.child_to_read, getf, getf_v, &do_prefetch, ftcursor, &unlockers, (ANCESTORS)NULL, pivot_bounds::infinite_bounds(), false);
+	printf("Child num is %d\n", x);
+	//r = toku_deserialize_ftnode_from(
+    	//fd, make_blocknum(50), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe);
+    }
     invariant(r == 0);
     gettimeofday(&t[1], NULL);
     dt = (t[1].tv_sec - t[0].tv_sec) +
