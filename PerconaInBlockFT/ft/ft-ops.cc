@@ -1348,6 +1348,7 @@ int toku_ftnode_pf_callback(void* ftnode_pv, void* disk_data, void* read_extraar
                         "Error while reading node partition %d\n",
                         get_maybe_error_errno());
             }
+	    return 0;
             abort();
         }
     }
