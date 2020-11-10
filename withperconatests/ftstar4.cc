@@ -48,7 +48,7 @@ const double USECS_PER_SEC = 1000000.0;
 
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
 //#define TOKU_TEST_FILENAME1 "/dev/nvme0n1"
-#define DEBUG 1
+//#define DEBUG 1
 
 static size_t le_add_to_bn(bn_data *bn,
                            uint32_t idx,
@@ -80,7 +80,7 @@ static void test_serialize_nonleaf_two(int valsize,
                                    int nelts,
                                    double entropy,
                                    int ser_runs,
-                                   int deser_runs) {
+                                   int deser_runs, int height) {
     //    struct ft_handle source_ft;
     struct ftnode sn, *dn;
     struct ftnode sn1, *dn1;
@@ -98,7 +98,7 @@ static void test_serialize_nonleaf_two(int valsize,
     sn.blocknum.b = 20;
     sn.layout_version = FT_LAYOUT_VERSION;
     sn.layout_version_original = FT_LAYOUT_VERSION;
-    sn.height = 1;
+    sn.height = height;
     sn.n_children = 8;
     sn.set_dirty();
     sn.oldest_referenced_xid_known = TXNID_NONE;
@@ -154,7 +154,7 @@ static void test_serialize_nonleaf_two(int valsize,
     sn1.blocknum.b = 50;
     sn1.layout_version = FT_LAYOUT_VERSION;
     sn1.layout_version_original = FT_LAYOUT_VERSION;
-    sn1.height = 1;
+    sn1.height = height;
     sn1.n_children = 8;
     sn1.set_dirty();
     sn1.oldest_referenced_xid_known = TXNID_NONE;
@@ -259,10 +259,24 @@ static void test_serialize_nonleaf_two(int valsize,
     
     struct treenvme_block_table tbl;
     tbl.length_of_array = ft_h->blocktable._current.length_of_array;
-    tbl.smallest = ft_h->blocktable._current.smallest_never_used_blocknum.b; 
+    tbl.smallest = {.b = ft_h->blocktable._current.smallest_never_used_blocknum.b}; 
     // tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
-    tbl.next_head = 50;
+    tbl.next_head = {.b = 50};
     tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+#ifdef DEBUG
+    std::cout << "Print out TRANSLATION: " << "\n";
+    for (int i = 0; i < tbl.length_of_array; i++) {
+	std::cout << "SIZE OF: " << tbl.block_translation[i].size << "\n";
+        std::cout << "DISKOFF OF: " << tbl.block_translation[i].u.diskoff << "\n";
+    }
+   /* 
+    for (int i = 0; i < tbl.length_of_array; i++)
+    {
+	std::cout << "DISKOFF OF " << tbl.block_translation[i].u.diskoff << "\n";
+    }
+    */
+#endif
 
     ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
@@ -271,9 +285,9 @@ static void test_serialize_nonleaf_two(int valsize,
 #ifdef DEBUG
 	std::cout << "Node num " << i << "\n";
 #endif
-    sn.blocknum.b = i;
+    sn1.blocknum.b = i;
     r = toku_serialize_ftnode_to(
-        fd, make_blocknum(i), &sn, &ndd, true, ft->ft, false); 
+        fd, make_blocknum(i), &sn1, &ndd, true, ft->ft, false); 
     }
     //r = toku_serialize_ftnode_to(
     //    fd, make_blocknum(50), &sn1, &ndd, true, ft->ft, false);
@@ -292,7 +306,13 @@ static void test_serialize_nonleaf_two(int valsize,
     ftnode_fetch_extra bfe;
     bfe.create_for_full_read(ft_h);
     //gettimeofday(&t[0], NULL);
-    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, ft_h->blocktable._current);
+    tbl.length_of_array = ft_h->blocktable._current.length_of_array;
+    tbl.smallest = {.b = ft_h->blocktable._current.smallest_never_used_blocknum.b}; 
+    // tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
+    tbl.next_head = {.b = 50};
+    tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd2 = NULL;
     r = toku_deserialize_ftnode_from(
@@ -364,7 +384,8 @@ int test_main(int argc __attribute__((__unused__)),
     //test_serialize_leaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf_one(valsize, nelts, entropy, ser_runs, deser_runs);
-    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs);
+    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 6);
+    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 8);
 	
     return 0;
 }
