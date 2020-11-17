@@ -49,6 +49,7 @@ const double USECS_PER_SEC = 1000000.0;
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
 //#define TOKU_TEST_FILENAME1 "/dev/nvme0n1"
 //#define DEBUG 1
+#define DEBUGSMALL 1
 
 static size_t le_add_to_bn(bn_data *bn,
                            uint32_t idx,
@@ -264,6 +265,9 @@ static void test_serialize_nonleaf_two(int valsize,
     tbl.next_head = {.b = 50};
     tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
 
+#ifdef DEBUGSMALL
+	std::cout << "LENGTH OF ARRAY: " << tbl.length_of_array << "\n";
+#endif 
 #ifdef DEBUG
     std::cout << "Print out TRANSLATION: " << "\n";
     for (int i = 0; i < tbl.length_of_array; i++) {
@@ -285,9 +289,64 @@ static void test_serialize_nonleaf_two(int valsize,
 #ifdef DEBUG
 	std::cout << "Node num " << i << "\n";
 #endif
+    sn1.flags = 0x11223344;
     sn1.blocknum.b = i;
-    r = toku_serialize_ftnode_to(
-        fd, make_blocknum(i), &sn1, &ndd, true, ft->ft, false); 
+    sn1.layout_version = FT_LAYOUT_VERSION;
+    sn1.layout_version_original = FT_LAYOUT_VERSION;
+    sn1.height = height;
+    sn1.n_children = 8;
+    sn1.set_dirty();
+    sn1.oldest_referenced_xid_known = TXNID_NONE;
+    sn1.pivotkeys.create_empty();
+    for (int j = 0; j < sn1.n_children; ++j) {
+        BP_BLOCKNUM(&sn1, j).b = 40 + (j * 5) % 100;
+        BP_STATE(&sn1, j) = PT_AVAIL;
+        set_BNC(&sn1, j, toku_create_empty_nl());
+    }
+    XIDS xids_0_1 = toku_xids_get_root_xids();
+    XIDS xids_123_1;
+    r = toku_xids_create_child(xids_0_1, &xids_123_1, (TXNID)123);
+    CKERR(r);
+    toku::comparator cmp_1;
+    cmp_1.create(long_key_cmp, nullptr);
+    int nperchild_1 = nelts / 8;
+    for (int ck = 0; ck < sn1.n_children; ++ck) {
+        long k;
+        NONLEAF_CHILDINFO bnc = BNC(&sn1, ck);
+        for (long i = 0; i < nperchild_1; ++i) {
+            k = ck * nperchild_1 + i;
+            char buf[valsize];
+            int c;
+            for (c = 0; c < valsize * entropy;) {
+                int *p = (int *)&buf[c];
+                *p = rand();
+                c += sizeof(*p);
+            }
+            memset(&buf[c], 0, valsize - c);
+
+            toku_bnc_insert_msg(bnc,
+                                &k,
+                                sizeof k,
+                                buf,
+                                valsize,
+                                FT_NONE,
+                                next_dummymsn(),
+                                xids_123_1,
+                                true,
+                                cmp_1);
+        }
+        if (ck < 7) {
+            DBT pivotkey;
+            sn1.pivotkeys.insert_at(toku_fill_dbt(&pivotkey, &k, sizeof(k)), ck);
+        }
+    }
+    // Cleanup:
+    toku_xids_destroy(&xids_0);
+    toku_xids_destroy(&xids_123);
+    toku_xids_destroy(&xids_0_1);
+    toku_xids_destroy(&xids_123_1);
+    cmp_1.destroy();
+    r = toku_serialize_ftnode_to(fd, make_blocknum(i), &sn1, &ndd, true, ft->ft, false); 
     }
     //r = toku_serialize_ftnode_to(
     //    fd, make_blocknum(50), &sn1, &ndd, true, ft->ft, false);
@@ -338,9 +397,8 @@ static void test_serialize_nonleaf_two(int valsize,
     toku_ftnode_free(&dn);
     toku_destroy_ftnode_internals(&sn);
 
-    ft_h->blocktable.block_free(
-        BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE, 100);
-    ft_h->blocktable.destroy();
+    //ft_h->blocktable.block_free(BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE, 100);
+    //ft_h->blocktable.destroy();
     toku_free(ft_h->h);
     ft_h->cmp.destroy();
     toku_free(ft_h);
@@ -385,7 +443,7 @@ int test_main(int argc __attribute__((__unused__)),
     //test_serialize_nonleaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf_one(valsize, nelts, entropy, ser_runs, deser_runs);
     test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 6);
-    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 8);
+    //test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 8);
 	
     return 0;
 }

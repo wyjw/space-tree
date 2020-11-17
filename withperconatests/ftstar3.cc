@@ -38,6 +38,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "bndata.h"
 #include <sys/ioctl.h>
 #include <stdint.h>
+#include <iostream>
 #include <linux/treenvme_ioctl.h>
 
 #ifndef MIN
@@ -47,6 +48,8 @@ const double USECS_PER_SEC = 1000000.0;
 
 //#define TOKU_TEST_FILENAME "/dev/treenvme0"
 #define TOKU_TEST_FILENAME "/dev/nvme0n1"
+//#define DEBUG 1
+#define DEBUGSMALL 1
 
 static size_t le_add_to_bn(bn_data *bn,
                            uint32_t idx,
@@ -78,7 +81,7 @@ static void test_serialize_nonleaf_two(int valsize,
                                    int nelts,
                                    double entropy,
                                    int ser_runs,
-                                   int deser_runs) {
+                                   int deser_runs, int height) {
     //    struct ft_handle source_ft;
     struct ftnode sn, *dn;
     struct ftnode sn1, *dn1;
@@ -96,7 +99,7 @@ static void test_serialize_nonleaf_two(int valsize,
     sn.blocknum.b = 20;
     sn.layout_version = FT_LAYOUT_VERSION;
     sn.layout_version_original = FT_LAYOUT_VERSION;
-    sn.height = 1;
+    sn.height = height;
     sn.n_children = 8;
     sn.set_dirty();
     sn.oldest_referenced_xid_known = TXNID_NONE;
@@ -152,7 +155,7 @@ static void test_serialize_nonleaf_two(int valsize,
     sn1.blocknum.b = 50;
     sn1.layout_version = FT_LAYOUT_VERSION;
     sn1.layout_version_original = FT_LAYOUT_VERSION;
-    sn1.height = 1;
+    sn1.height = height;
     sn1.n_children = 8;
     sn1.set_dirty();
     sn1.oldest_referenced_xid_known = TXNID_NONE;
@@ -222,44 +225,131 @@ static void test_serialize_nonleaf_two(int valsize,
     ft->ft = ft_h;
 
     ft_h->blocktable.create();
-    /*{
-        int r_truncate = ftruncate(fd, 0);
-        CKERR(r_truncate);
-    }*/
-    // Want to use block #20
-    BLOCKNUM b = make_blocknum(0);
-    while (b.b < 50) {
+
+    //invariant(b.b == 50);
+
+    BLOCKNUM b = make_blocknum(0); 
+    while (b.b < 100) {
         ft_h->blocktable.allocate_blocknum(&b, ft_h);
     }
-    invariant(b.b == 50);
+    invariant(b.b == 100);
 
+    // Verification stuff
+    for (int i = 0; i < 100; i++)
+	    ft_h->blocktable.verify_blocknum_allocated(make_blocknum(i));
+    ft_h->blocktable.verify_no_free_blocknums();
+
+    for (int i = RESERVED_BLOCKNUMS; i < 100; i++)
     {
+    	// Allocate hundred blocks.
         DISKOFF offset;
         DISKOFF size;
-        ft_h->blocktable.realloc_on_disk(b, 100, &offset, ft_h, fd, false);
-        invariant(offset ==
-               (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
+#ifdef DEBUG
+	int64_t file_size;
+	int r = toku_os_get_file_size(fd, &file_size);
+	printf("FILE SIZE OF %d\n", file_size);
+#endif
+        ft_h->blocktable.realloc_on_disk(make_blocknum(i), 100, &offset, ft_h, fd, false);
+        //invariant(offset == (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
 
-        ft_h->blocktable.translate_blocknum_to_offset_size(b, &offset, &size);
-        invariant(offset ==
-               (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
+        ft_h->blocktable.translate_blocknum_to_offset_size(make_blocknum(i), &offset, &size);
+        //invariant(offset == (DISKOFF)BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE);
     }
 
-    struct timeval t[2];  
+    struct timeval t[2];
+    
     struct treenvme_block_table tbl;
     tbl.length_of_array = ft_h->blocktable._current.length_of_array;
-    tbl.smallest = ft_h->blocktable._current.smallest_never_used_blocknum.b; 
+    tbl.smallest = {.b = ft_h->blocktable._current.smallest_never_used_blocknum.b}; 
     // tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
-    tbl.next_head = 50;
+    tbl.next_head = {.b = 50};
     tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+#ifdef DEBUGSMALL
+	std::cout << "LENGTH OF ARRAY: " << tbl.length_of_array << "\n";
+#endif 
+#ifdef DEBUG
+    std::cout << "Print out TRANSLATION: " << "\n";
+    for (int i = 0; i < tbl.length_of_array; i++) {
+	std::cout << "SIZE OF: " << tbl.block_translation[i].size << "\n";
+        std::cout << "DISKOFF OF: " << tbl.block_translation[i].u.diskoff << "\n";
+    }
+   /* 
+    for (int i = 0; i < tbl.length_of_array; i++)
+    {
+	std::cout << "DISKOFF OF " << tbl.block_translation[i].u.diskoff << "\n";
+    }
+    */
+#endif
 
     ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd = NULL;
-    r = toku_serialize_ftnode_to(
-        fd, make_blocknum(20), &sn, &ndd, true, ft->ft, false); 
-    r = toku_serialize_ftnode_to(
-        fd, make_blocknum(50), &sn1, &ndd, true, ft->ft, false);
+    for (int i = RESERVED_BLOCKNUMS; i <= 100; i++){
+#ifdef DEBUG
+	std::cout << "Node num " << i << "\n";
+#endif
+    sn1.flags = 0x11223344;
+    sn1.blocknum.b = i;
+    sn1.layout_version = FT_LAYOUT_VERSION;
+    sn1.layout_version_original = FT_LAYOUT_VERSION;
+    sn1.height = height;
+    sn1.n_children = 8;
+    sn1.set_dirty();
+    sn1.oldest_referenced_xid_known = TXNID_NONE;
+    sn1.pivotkeys.create_empty();
+    for (int j = 0; j < sn1.n_children; ++j) {
+        BP_BLOCKNUM(&sn1, j).b = 40 + (j * 5) % 100;
+        BP_STATE(&sn1, j) = PT_AVAIL;
+        set_BNC(&sn1, j, toku_create_empty_nl());
+    }
+    XIDS xids_0_1 = toku_xids_get_root_xids();
+    XIDS xids_123_1;
+    r = toku_xids_create_child(xids_0_1, &xids_123_1, (TXNID)123);
+    CKERR(r);
+    toku::comparator cmp_1;
+    cmp_1.create(long_key_cmp, nullptr);
+    int nperchild_1 = nelts / 8;
+    for (int ck = 0; ck < sn1.n_children; ++ck) {
+        long k;
+        NONLEAF_CHILDINFO bnc = BNC(&sn1, ck);
+        for (long i = 0; i < nperchild_1; ++i) {
+            k = ck * nperchild_1 + i;
+            char buf[valsize];
+            int c;
+            for (c = 0; c < valsize * entropy;) {
+                int *p = (int *)&buf[c];
+                *p = rand();
+                c += sizeof(*p);
+            }
+            memset(&buf[c], 0, valsize - c);
+
+            toku_bnc_insert_msg(bnc,
+                                &k,
+                                sizeof k,
+                                buf,
+                                valsize,
+                                FT_NONE,
+                                next_dummymsn(),
+                                xids_123_1,
+                                true,
+                                cmp_1);
+        }
+        if (ck < 7) {
+            DBT pivotkey;
+            sn1.pivotkeys.insert_at(toku_fill_dbt(&pivotkey, &k, sizeof(k)), ck);
+        }
+    }
+    // Cleanup:
+    toku_xids_destroy(&xids_0);
+    toku_xids_destroy(&xids_123);
+    toku_xids_destroy(&xids_0_1);
+    toku_xids_destroy(&xids_123_1);
+    cmp_1.destroy();
+    r = toku_serialize_ftnode_to(fd, make_blocknum(i), &sn1, &ndd, true, ft->ft, false); 
+    }
+    //r = toku_serialize_ftnode_to(
+    //    fd, make_blocknum(50), &sn1, &ndd, true, ft->ft, false);
     // lookup ndd info
     printf("NDD info: start of %u, size of %u\n", ndd->start, ndd->size);
 
@@ -274,22 +364,21 @@ static void test_serialize_nonleaf_two(int valsize,
 
     ftnode_fetch_extra bfe;
     bfe.create_for_full_read(ft_h);
-    gettimeofday(&t[0], NULL);
-    //ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, ft_h->blocktable._current);
+    //gettimeofday(&t[0], NULL);
+    tbl.length_of_array = ft_h->blocktable._current.length_of_array;
+    tbl.smallest = {.b = ft_h->blocktable._current.smallest_never_used_blocknum.b}; 
+    // tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
+    tbl.next_head = {.b = 50};
+    tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+    ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
     gettimeofday(&t[0], NULL);
     FTNODE_DISK_DATA ndd2 = NULL;
-    int x;
-    for (int i = 0; i < 4; i ++) {
-    	r = toku_deserialize_ftnode_from(
-        	fd, make_blocknum(20), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe); 
-	bool doprefetch = false;
-	//struct unlock_ftnode_extra unlock_extra = {ft_h, dn, false};
-	//struct unlockers unlockers = {true, unlock_ftnode_fun, (void *)&unlock_extra, (UNLOCKERS)NULL};
-    	//x = ft_search_child(ft_h, dn, 3, bfe.child_to_read, getf, getf_v, &do_prefetch, ftcursor, &unlockers, (ANCESTORS)NULL, pivot_bounds::infinite_bounds(), false);
-	printf("Child num is %d\n", x);
-	//r = toku_deserialize_ftnode_from(
-    	//fd, make_blocknum(50), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe);
-    }
+    r = toku_deserialize_ftnode_from(
+        fd, make_blocknum(20), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe); 
+    //r = toku_deserialize_ftnode_from(
+    //   fd, make_blocknum(50), 0 /*pass zero for hash*/, &dn, &ndd2, &bfe);
+    
     invariant(r == 0);
     gettimeofday(&t[1], NULL);
     dt = (t[1].tv_sec - t[0].tv_sec) +
@@ -308,9 +397,8 @@ static void test_serialize_nonleaf_two(int valsize,
     toku_ftnode_free(&dn);
     toku_destroy_ftnode_internals(&sn);
 
-    ft_h->blocktable.block_free(
-        BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE, 100);
-    ft_h->blocktable.destroy();
+    //ft_h->blocktable.block_free(BlockAllocator::BLOCK_ALLOCATOR_TOTAL_HEADER_RESERVE, 100);
+    //ft_h->blocktable.destroy();
     toku_free(ft_h->h);
     ft_h->cmp.destroy();
     toku_free(ft_h);
@@ -354,7 +442,8 @@ int test_main(int argc __attribute__((__unused__)),
     //test_serialize_leaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf(valsize, nelts, entropy, ser_runs, deser_runs);
     //test_serialize_nonleaf_one(valsize, nelts, entropy, ser_runs, deser_runs);
-    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs);
+    test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 6);
+    //test_serialize_nonleaf_two(valsize, nelts, entropy, ser_runs, deser_runs, 8);
 	
     return 0;
 }
