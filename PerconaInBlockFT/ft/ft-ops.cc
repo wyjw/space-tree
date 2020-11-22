@@ -184,6 +184,17 @@ basement nodes, bulk fetch,  and partial fetch:
 /* Status is intended for display to humans to help understand system behavior.
  * It does not need to be perfectly thread-safe.
  */
+#define DEBUG 1
+
+void dump_ftnode(FTNODE node) {
+	printf("Dumping node: \n");
+	printf("Blocknum of current node is: %lu\n", node->blocknum.b);
+	printf("Height of current node is %d\n", node->height);
+	printf("Number of children of current node is %d\n", node->n_children);
+	for (int i = 0; i < node->n_children; i++) {
+		printf("Blocknum of node %d is %lu\n", i, BP_BLOCKNUM(node,i).b);
+	}
+}
 
 static toku_mutex_t ft_open_close_lock;
 static toku_instr_key *ft_open_close_lock_mutex_key;
@@ -816,6 +827,11 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
     // least partially into memory
     int r =
         toku_deserialize_ftnode_from(fd, blocknum, fullhash, node, ndd, bfe);
+
+#ifdef DEBUG
+	dump_ftnode(*node);    
+#endif
+    
     if (r != 0) {
         if (r == TOKUDB_BAD_CHECKSUM) {
             fprintf(

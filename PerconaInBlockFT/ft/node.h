@@ -319,6 +319,8 @@ struct ftnode_partition {
     uint8_t clock_count;
 };
 
+void dump_ftnode(FTNODE node);
+
 //
 // TODO: Fix all these names
 //       Organize declarations
