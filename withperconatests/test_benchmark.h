@@ -63,6 +63,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "util/bytestring.h"
 
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
+#define DEBUG 1
 
 #define CKERR(r) ({ int __r = r; if (__r!=0) fprintf(stderr, "%s:%d error %d %s\n", __FILE__, __LINE__, __r, strerror(r)); assert(__r==0); })
 #define CKERR2(r,r2) do { if (r!=r2) fprintf(stderr, "%s:%d error %d %s, expected %d\n", __FILE__, __LINE__, r, strerror(r), r2); assert(r==r2); } while (0)
@@ -83,6 +84,30 @@ static const TOKULOGGER NULL_logger                                     __attrib
 #define MIN_DUMMYMSN ((MSN) {(uint64_t)1<<62})
 static MSN dummymsn;      
 static int dummymsn_initialized = 0;
+
+int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nodesize, int basementnodesize, enum toku_compression_method compression_method, CACHETABLE cachetable, TOKUTXN txn, int (*compare_fun)(DB *, const DBT *, const DBT *)) {
+	FT_HANDLE ft_handle;
+       	const int only_create = 0;
+
+	toku_ft_handle_create(&ft_handle);
+	toku_ft_handle_set_nodesize(ft_handle, nodesize);
+	toku_ft_handle_set_basementnodesize(ft_handle, basementnodesize);
+	toku_ft_handle_set_compression_method(ft_handle, compression_method);
+	toku_ft_handle_set_fanout(ft_handle, 16);
+	toku_ft_set_bt_compare(ft_handle, compare_fun);
+
+
+    	int r = toku_open_ft_handle(name, 1, &ft_handle,
+                            4*1024*1024, 64*1024,
+                            TOKU_NO_COMPRESSION_METHOD, ct, NULL,
+                            toku_builtin_compare_fun);
+	CKERR(r);
+	FT ft = ft_handle->ft;
+#ifdef DEBUG
+	printf("FT is now set up.\n");
+#endif
+	return r;
+}
 
 static void
 initialize_dummymsn(void) {
