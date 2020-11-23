@@ -48,7 +48,7 @@ const double USECS_PER_SEC = 1000000.0;
 
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
 //#define TOKU_TEST_FILENAME1 "/dev/nvme0n1"
-//#define DEBUG 1
+#define DEBUG 1
 #define DEBUGSMALL 1
 
 static size_t le_add_to_bn(bn_data *bn,
@@ -270,7 +270,7 @@ static void test_serialize_nonleaf_two(int valsize,
 #endif 
 #ifdef DEBUG
     std::cout << "Print out TRANSLATION: " << "\n";
-    for (int i = 0; i < tbl.length_of_array; i++) {
+    for (int i = 0; i < 100; i++) {
 	std::cout << "SIZE OF: " << tbl.block_translation[i].size << "\n";
         std::cout << "DISKOFF OF: " << tbl.block_translation[i].u.diskoff << "\n";
     }

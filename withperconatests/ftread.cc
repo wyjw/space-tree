@@ -39,6 +39,9 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include <util/dbt.h>
 #include <ft/ft-cachetable-wrappers.h>
 
+#define DEBUG 1
+static TOKUTXN const null_txn = 0;
+
 // Each FT maintains a sequential insert heuristic to determine if its
 // worth trying to insert directly into a well-known rightmost leaf node.
 //
@@ -52,8 +55,9 @@ static void test_inserts(void) {
     CACHETABLE ct;
     toku_cachetable_create(&ct, 0, ZERO_LSN, nullptr);
     FT_HANDLE ft_handle;
-    r = btoku_setup(TOKU_TEST_FILENAME, 1, &ft_handle, 4*1024*1024, 64*1024, TOKU_NO_COMPRESSION_METHOD, ct, NULL, toku_builtin_compare_fun);    
+    r = btoku_setup(TOKU_TEST_FILENAME, 1, &ft_handle, 4*1024*1024, 64*1024, TOKU_NO_COMPRESSION, ct, null_txn, toku_builtin_compare_fun);    
     CKERR(r);
+    FT ft = ft_handle->ft;
 
     int k;
     DBT key, val;
@@ -69,15 +73,21 @@ static void test_inserts(void) {
     for (int i = 0; i < rows_to_insert; i++) {
         k = toku_htonl(i);
         toku_fill_dbt(&key, &k, sizeof(k));
+#ifdef DEBUG
+	printf("Print row: %d\n", i);
+	//printf("TxnManager: %d\n", toku_ft_get_txn_manager(ft_handle));
+	printf("FtHandle: %d\n", ft_handle->ft);	
+	printf("Logger: %d\n", toku_cachefile_logger(ft_handle->ft->cf));
+#endif
         toku_ft_insert(ft_handle, &key, &val, NULL);
     }
+    
     invariant(ft->rightmost_blocknum.b != RESERVED_BLOCKNUM_NULL);
     invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);  	  
 
     toku_free(val_buf);
     toku_ft_handle_close(ft_handle);
     toku_cachetable_close(&ct);
-    toku_os_recursive_delete(TOKU_TEST_FILENAME);
 }
 
 int test_main(int argc, const char *argv[]) {

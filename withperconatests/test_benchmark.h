@@ -96,17 +96,21 @@ int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nod
 	toku_ft_handle_set_fanout(ft_handle, 16);
 	toku_ft_set_bt_compare(ft_handle, compare_fun);
 
-
     	int r = toku_open_ft_handle(name, 1, &ft_handle,
                             4*1024*1024, 64*1024,
-                            TOKU_NO_COMPRESSION_METHOD, cachetable, NULL,
+                            TOKU_NO_COMPRESSION, cachetable, txn,
                             toku_builtin_compare_fun);
 	CKERR(r);
 	FT ft = ft_handle->ft;
 #ifdef DEBUG
 	printf("FT is now set up.\n");
 #endif
+	*ft_handle_p = ft_handle;
 	return r;
+}
+
+void sync_blocktable(void) {
+
 }
 
 static void
