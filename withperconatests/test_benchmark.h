@@ -99,7 +99,7 @@ int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nod
 
     	int r = toku_open_ft_handle(name, 1, &ft_handle,
                             4*1024*1024, 64*1024,
-                            TOKU_NO_COMPRESSION_METHOD, ct, NULL,
+                            TOKU_NO_COMPRESSION_METHOD, cachetable, NULL,
                             toku_builtin_compare_fun);
 	CKERR(r);
 	FT ft = ft_handle->ft;
