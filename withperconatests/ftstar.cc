@@ -249,9 +249,9 @@ static void test_serialize_nonleaf_two(int valsize,
     
     struct treenvme_block_table tbl;
     tbl.length_of_array = ft_h->blocktable._current.length_of_array;
-    tbl.smallest = ft_h->blocktable._current.smallest_never_used_blocknum.b; 
+    tbl.smallest = { .b = ft_h->blocktable._current.smallest_never_used_blocknum.b }; 
     // tbl.next_head = ft_h->blocktable._current.blocknum_freelist_head.b;
-    tbl.next_head = 50;
+    tbl.next_head = { .b = 50 };
     tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
 
     ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);

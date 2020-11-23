@@ -41,11 +41,12 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include <libgen.h>
 #include <sys/time.h>
 #include <portability/toku_path.h>
-#include "test-benchmark.h"
+#include "test_benchmark.h"
 
 #include "ft-flusher.h"
 
 #include "cachetable/checkpoint.h"
+#define TOKU_TEST_FILENAME "a.txt"
 
 static TOKUTXN const null_txn = NULL;
 
