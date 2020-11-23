@@ -49,18 +49,22 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 static void test_inserts(void) {
     int r = 0;
+    /*
     char name[TOKU_PATH_MAX + 1];
     toku_path_join(name, 2, TOKU_TEST_FILENAME, "ftdata");
     toku_os_recursive_delete(TOKU_TEST_FILENAME);
-    r = toku_os_mkdir(TOKU_TEST_FILENAME, S_IRWXU); CKERR(r);
+    r = toku_os_mkdir(TOKU_TEST_FILENAME, S_IRWXU); 
+    CKERR(r);
+    */
     
     FT_HANDLE ft_handle;
     CACHETABLE ct;
     toku_cachetable_create(&ct, 0, ZERO_LSN, nullptr);
     r = toku_open_ft_handle(name, 1, &ft_handle,
                             4*1024*1024, 64*1024,
-                            TOKU_DEFAULT_COMPRESSION_METHOD, ct, NULL,
-                            toku_builtin_compare_fun); CKERR(r);
+                            TOKU_NO_COMPRESSION_METHOD, ct, NULL,
+                            toku_builtin_compare_fun);
+    CKERR(r);
     FT ft = ft_handle->ft;
 
     int k;
@@ -80,9 +84,7 @@ static void test_inserts(void) {
         toku_ft_insert(ft_handle, &key, &val, NULL);
     }
     invariant(ft->rightmost_blocknum.b != RESERVED_BLOCKNUM_NULL);
-    invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);
-    
-  	  
+    invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);  	  
 
     toku_free(val_buf);
     toku_ft_handle_close(ft_handle);
