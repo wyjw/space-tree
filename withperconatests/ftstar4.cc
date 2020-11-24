@@ -36,10 +36,10 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #include "test_benchmark.h"
 #include "bndata.h"
-#include <sys/ioctl.h>
+//#include <sys/ioctl.h>
 #include <stdint.h>
 #include <iostream>
-#include <linux/treenvme_ioctl.h>
+//#include <linux/treenvme_ioctl.h>
 
 #ifndef MIN
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))

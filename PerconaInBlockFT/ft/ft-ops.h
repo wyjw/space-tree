@@ -126,6 +126,8 @@ void toku_ft_set_update(FT_HANDLE ft_h, ft_update_func update_fun);
 
 int toku_ft_handle_open(FT_HANDLE, const char *fname_in_env,
 		  int is_create, int only_create, CACHETABLE ct, TOKUTXN txn, bool open_rw=true)  __attribute__ ((warn_unused_result));
+int toku_ft_handle_open_block(FT_HANDLE, const char *fname_in_env,
+		  int is_create, int only_create, CACHETABLE ct, TOKUTXN txn, bool open_rw=true)  __attribute__ ((warn_unused_result));
 int toku_ft_handle_open_recovery(FT_HANDLE, const char *fname_in_env, int is_create, int only_create, CACHETABLE ct, TOKUTXN txn, 
 			   FILENUM use_filenum, LSN max_acceptable_lsn)  __attribute__ ((warn_unused_result));
 

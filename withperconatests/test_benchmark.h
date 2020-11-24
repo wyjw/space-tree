@@ -61,6 +61,9 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "ft/logger/logger.h"
 #include "ft/node.h"
 #include "util/bytestring.h"
+#include <sys/ioctl.h>
+#include <linux/treenvme_ioctl.h>
+#include <iostream>
 
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
 #define DEBUG 1
@@ -87,7 +90,8 @@ static int dummymsn_initialized = 0;
 
 int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nodesize, int basementnodesize, enum toku_compression_method compression_method, CACHETABLE cachetable, TOKUTXN txn, int (*compare_fun)(DB *, const DBT *, const DBT *)) {
 	FT_HANDLE ft_handle;
-       	const int only_create = 0;
+	// This makes the database create only
+       	const int only_create = 1;
 
 	toku_ft_handle_create(&ft_handle);
 	toku_ft_handle_set_nodesize(ft_handle, nodesize);
@@ -96,10 +100,8 @@ int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nod
 	toku_ft_handle_set_fanout(ft_handle, 16);
 	toku_ft_set_bt_compare(ft_handle, compare_fun);
 
-    	int r = toku_open_ft_handle(name, 1, &ft_handle,
-                            4*1024*1024, 64*1024,
-                            TOKU_NO_COMPRESSION, cachetable, txn,
-                            toku_builtin_compare_fun);
+    	int r = toku_ft_handle_open(ft_handle,
+                            name, 1, 1, cachetable, txn);
 	CKERR(r);
 	FT ft = ft_handle->ft;
 #ifdef DEBUG
@@ -109,8 +111,61 @@ int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nod
 	return r;
 }
 
-void sync_blocktable(void) {
+int btoku_setup_old(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nodesize, int basementnodesize, enum toku_compression_method compression_method, CACHETABLE cachetable, TOKUTXN txn, int (*compare_fun)(DB *, const DBT *, const DBT *)) {
+	FT_HANDLE ft_handle;
+	// This makes the database create only
+       	const int only_create = 0;
 
+	toku_ft_handle_create(&ft_handle);
+	toku_ft_handle_set_nodesize(ft_handle, nodesize);
+	toku_ft_handle_set_basementnodesize(ft_handle, basementnodesize);
+	toku_ft_handle_set_compression_method(ft_handle, compression_method);
+	toku_ft_handle_set_fanout(ft_handle, 16);
+	toku_ft_set_bt_compare(ft_handle, compare_fun);
+
+    	int r = toku_ft_handle_open_block(ft_handle,
+                            name, 1, 0, cachetable, txn);
+	CKERR(r);
+	FT ft = ft_handle->ft;
+#ifdef DEBUG
+	printf("FT is now set up.\n");
+#endif
+	*ft_handle_p = ft_handle;
+	return r;
+}
+
+int sync_blocktable(FT ft_h, struct treenvme_block_table *tbl1, int fd, int filesize) {
+	/*
+	if (!tbl)
+		tbl = (struct treenvme_block_table *) malloc(sizeof(struct treenvme_block_table));
+	*/
+	struct treenvme_block_table tbl;
+	tbl.length_of_array = ft_h->blocktable._current.length_of_array;		    
+	tbl.smallest = { .b = ft_h->blocktable._current.smallest_never_used_blocknum.b };
+	tbl.next_head = { .b = 50 };
+	tbl.block_translation = (struct treenvme_block_translation_pair *) ft_h->blocktable._current.block_translation;
+
+#ifdef DEBUG
+	std::cout << "Preparing to sync blocktable \n";
+	std::cout << "Print out TRANSLATION: " << "\n";
+	std::cout << "Length of array of: " << tbl.length_of_array << "\n";
+	//for (int i = 0; i < tbl.length_of_array; i++) {
+	for (int i = 0; i < tbl.length_of_array; i++) {
+		if ((tbl.block_translation[i].size < filesize) && (tbl.block_translation[i].u.diskoff < filesize)){
+			std::cout << "SIZE OF: " << tbl.block_translation[i].size << "\n";
+			std::cout << "DISKOFF OF: " << tbl.block_translation[i].u.diskoff << "\n";
+		}
+	}
+	std::cout << "Finish cycling \n";
+	std::cout << "Fd is at " << fd << "\n";
+#endif
+
+	ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);
+
+#ifdef DEBUG
+	std::cout << "Registered in ioctl \n";
+#endif
+	return 0;
 }
 
 static void

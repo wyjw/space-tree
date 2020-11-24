@@ -2967,12 +2967,8 @@ toku_ft_handle_inherit_options(FT_HANDLE t, FT ft) {
     t->did_set_flags = true;
 }
 
-// This is the actual open, used for various purposes, such as normal use, recovery, and redirect.
-// fname_in_env is the iname, relative to the env_dir  (data_dir is already in iname as prefix).
-// The checkpointed version (checkpoint_lsn) of the dictionary must be no later than max_acceptable_lsn .
-// Requires: The multi-operation client lock must be held to prevent a checkpoint from occuring.
 static int
-ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only_create, CACHETABLE cachetable, TOKUTXN txn, FILENUM use_filenum, DICTIONARY_ID use_dictionary_id, LSN max_acceptable_lsn, bool open_rw = true) {
+ft_handle_open_block(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only_create, int block_dev, CACHETABLE cachetable, TOKUTXN txn, FILENUM use_filenum, DICTIONARY_ID use_dictionary_id, LSN max_acceptable_lsn, bool open_rw = true) {
     int r;
     bool txn_created = false;
     char *fname_in_cwd = NULL;
@@ -2988,7 +2984,7 @@ ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only
         if (r!=0) { goto exit; }
     }
 
-    assert(is_create || !only_create);
+    //assert(is_create || !only_create);
     FILENUM reserved_filenum;
     reserved_filenum = use_filenum;
     fname_in_cwd = toku_cachetable_get_fname_in_cwd(cachetable, fname_in_env);
@@ -3015,6 +3011,10 @@ ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only
     }
     assert(ft_h->options.nodesize>0);
     if (is_create) {
+	if (only_create) {
+		toku_ft_create(&ft, &ft_h->options, cf, txn);
+		goto DONE;
+	}
         r = toku_read_ft_and_store_in_cachefile(ft_h, cf, max_acceptable_lsn, &ft);
         if (r==TOKUDB_DICTIONARY_NO_HEADER) {
             toku_ft_create(&ft, &ft_h->options, cf, txn);
@@ -3022,11 +3022,14 @@ ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only
         else if (r!=0) {
             goto exit;
         }
+	/*
+	// get rid of this code
         else if (only_create) {
             assert_zero(r);
             r = EEXIST;
             goto exit;
         }
+	*/
         // if we get here, then is_create was true but only_create was false,
         // so it is ok for toku_read_ft_and_store_in_cachefile to have read
         // the header via toku_read_ft_and_store_in_cachefile
@@ -3034,6 +3037,7 @@ ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only
         r = toku_read_ft_and_store_in_cachefile(ft_h, cf, max_acceptable_lsn, &ft);
         if (r) { goto exit; }
     }
+DONE:
     if (!ft_h->did_set_flags) {
         r = verify_builtin_comparisons_consistent(ft_h, ft_h->options.flags);
         if (r) { goto exit; }
@@ -3122,6 +3126,146 @@ exit:
         }
     }
     toku_ft_open_close_unlock();
+    return r;
+}
+
+
+// This is the actual open, used for various purposes, such as normal use, recovery, and redirect.
+// fname_in_env is the iname, relative to the env_dir  (data_dir is already in iname as prefix).
+// The checkpointed version (checkpoint_lsn) of the dictionary must be no later than max_acceptable_lsn .
+// Requires: The multi-operation client lock must be held to prevent a checkpoint from occuring.
+static int
+ft_handle_open(FT_HANDLE ft_h, const char *fname_in_env, int is_create, int only_create, CACHETABLE cachetable, TOKUTXN txn, FILENUM use_filenum, DICTIONARY_ID use_dictionary_id, LSN max_acceptable_lsn, bool open_rw = true) {
+    int r;
+    bool txn_created = false;
+    char *fname_in_cwd = NULL;
+    CACHEFILE cf = NULL;
+    FT ft = NULL;
+    bool did_create = false;
+    bool was_already_open = false;
+
+    toku_ft_open_close_lock();
+
+    if (ft_h->did_set_flags) {
+        r = verify_builtin_comparisons_consistent(ft_h, ft_h->options.flags);
+        if (r!=0) { goto exit; }
+    }
+
+    //assert(is_create || !only_create);
+    FILENUM reserved_filenum;
+    reserved_filenum = use_filenum;
+    fname_in_cwd = toku_cachetable_get_fname_in_cwd(cachetable, fname_in_env);
+    {
+        int fd = -1;
+        r = ft_open_file(fname_in_cwd, &fd, open_rw);
+        if (reserved_filenum.fileid == FILENUM_NONE.fileid) {
+            reserved_filenum = toku_cachetable_reserve_filenum(cachetable);
+        }
+            txn_created = (bool)(txn!=NULL);
+            toku_logger_log_fcreate(txn, fname_in_env, reserved_filenum, file_mode, ft_h->options.flags, ft_h->options.nodesize, ft_h->options.basementnodesize, ft_h->options.compression_method);
+        r=toku_cachetable_openfd_with_filenum(&cf, cachetable, fd, fname_in_env, reserved_filenum, &was_already_open);
+    }
+    toku_ft_create(&ft, &ft_h->options, cf, txn);
+    goto DONE;
+
+DONE:
+    if (!ft_h->did_set_flags) {
+        r = verify_builtin_comparisons_consistent(ft_h, ft_h->options.flags);
+        if (r) { goto exit; }
+    } else if (ft_h->options.flags != ft->h->flags) {                  /* if flags have been set then flags must match */
+        r = EINVAL;
+        goto exit;
+    }
+
+    // Ensure that the memcmp magic bits are consistent, if set.
+    if (ft->cmp.get_memcmp_magic() != toku::comparator::MEMCMP_MAGIC_NONE &&
+        ft_h->options.memcmp_magic != toku::comparator::MEMCMP_MAGIC_NONE &&
+        ft_h->options.memcmp_magic != ft->cmp.get_memcmp_magic()) {
+        r = EINVAL;
+        goto exit;
+    }
+    toku_ft_handle_inherit_options(ft_h, ft);
+
+    if (!was_already_open) {
+        if (!did_create) { //Only log the fopen that OPENs the file.  If it was already open, don't log.
+            toku_logger_log_fopen(txn, fname_in_env, toku_cachefile_filenum(cf), ft_h->options.flags);
+        }
+    }
+    int use_reserved_dict_id;
+    use_reserved_dict_id = use_dictionary_id.dictid != DICTIONARY_ID_NONE.dictid;
+    if (!was_already_open) {
+        DICTIONARY_ID dict_id;
+        if (use_reserved_dict_id) {
+            dict_id = use_dictionary_id;
+        }
+        else {
+            dict_id = next_dict_id();
+        }
+        ft->dict_id = dict_id;
+    }
+    else {
+        // dict_id is already in header
+        if (use_reserved_dict_id) {
+            assert(ft->dict_id.dictid == use_dictionary_id.dictid);
+        }
+    }
+    assert(ft);
+    assert(ft->dict_id.dictid != DICTIONARY_ID_NONE.dictid);
+    assert(ft->dict_id.dictid < dict_id_serial);
+
+    // important note here,
+    // after this point, where we associate the header
+    // with the ft_handle, the function is not allowed to fail
+    // Code that handles failure (located below "exit"),
+    // depends on this
+    toku_ft_note_ft_handle_open(ft, ft_h);
+    if (txn_created) {
+        assert(txn);
+        toku_txn_maybe_note_ft(txn, ft);
+    }
+
+    // Opening an ft may restore to previous checkpoint.
+    // Truncate if necessary.
+    {
+        int fd = toku_cachefile_get_fd (ft->cf);
+        ft->blocktable.maybe_truncate_file_on_open(fd);
+    }
+
+    r = 0;
+exit:
+    if (fname_in_cwd) {
+        toku_free(fname_in_cwd);
+    }
+    if (r != 0 && cf) {
+        if (ft) {
+            // we only call toku_ft_note_ft_handle_open
+            // when the function succeeds, so if we are here,
+            // then that means we have a reference to the header
+            // but we have not linked it to this ft. So,
+            // we can simply try to remove the header.
+            // We don't need to unlink this ft from the header
+            toku_ft_grab_reflock(ft);
+            bool needed = toku_ft_needed_unlocked(ft);
+            toku_ft_release_reflock(ft);
+            if (!needed) {
+                // close immediately.
+                toku_ft_evict_from_memory(ft, false, ZERO_LSN);
+           }
+        }
+        else {
+            toku_cachefile_close(&cf, false, ZERO_LSN);
+        }
+    }
+    toku_ft_open_close_unlock();
+    return r;
+}
+
+// Open an ft in normal use.  The FILENUM and dict_id are assigned by the ft_handle_open() function.
+// Requires: The multi-operation client lock must be held to prevent a checkpoint from occuring.
+int
+toku_ft_handle_open_block(FT_HANDLE t, const char *fname_in_env, int is_create, int only_create, CACHETABLE cachetable, TOKUTXN txn, bool open_rw) {
+    int r;
+    r = ft_handle_open(t, fname_in_env, is_create, only_create, cachetable, txn, FILENUM_NONE, DICTIONARY_ID_NONE, MAX_LSN, open_rw);
     return r;
 }
 
