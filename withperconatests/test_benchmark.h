@@ -78,6 +78,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 } while (0)
 
 const uint32_t len_ignore = 0xFFFFFFFF;
+const double USECS_PER_SEC = 1000000.0;
 
 static const prepared_txn_callback_t NULL_prepared_txn_callback         __attribute__((__unused__)) = NULL;
 static const keep_cachetable_callback_t  NULL_keep_cachetable_callback  __attribute__((__unused__)) = NULL;
@@ -87,6 +88,15 @@ static const TOKULOGGER NULL_logger                                     __attrib
 #define MIN_DUMMYMSN ((MSN) {(uint64_t)1<<62})
 static MSN dummymsn;      
 static int dummymsn_initialized = 0;
+
+// function used in tests
+static int
+noop_getf(uint32_t UU(keylen), const void *UU(key), uint32_t UU(vallen), const void *UU(val), void *extra, bool UU(lock_only))
+{
+	int *CAST_FROM_VOIDP(calledp, extra);
+	(*calledp)++;
+	return 0;
+}
 
 int btoku_setup(const char *name, int is_create, FT_HANDLE *ft_handle_p, int nodesize, int basementnodesize, enum toku_compression_method compression_method, CACHETABLE cachetable, TOKUTXN txn, int (*compare_fun)(DB *, const DBT *, const DBT *)) {
 	FT_HANDLE ft_handle;

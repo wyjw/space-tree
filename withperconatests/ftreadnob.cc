@@ -42,6 +42,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #define DEBUG 1
 //#define DEBUGMAX 1
+#define TIME 1
 static TOKUTXN const null_txn = 0;
 static int fd = 0;
 
@@ -122,11 +123,22 @@ static void test_inserts(void) {
 	int r;
 	int called;
 	FT_CURSOR cursor;
-	r = toku_ft_cursor(ft, &cursor, null_txn, false, false);
+	r = toku_ft_cursor(ft_handle, &cursor, null_txn, false, false);
 	CKERR(r);
 	called = 0;
+#ifdef TIME
+	struct timeval t[2];
+	gettimeofday(&t[0], NULL);
+#endif
     	// do one search
 	r = toku_ft_cursor_first(cursor, noop_getf, &called);
+#ifdef TIME
+	gettimeofday(&t[1], NULL);
+	double dt;
+	dt = (t[1].tv_sec - t[0].tv_sec) + ((t[1].tv_usec - t[0].tv_usec) / USECS_PER_SEC);
+	dt *= 1000;
+	printf("Time (in ms): %0.05lf", dt);
+#endif
 	CKERR(r);
 	toku_ft_cursor_close(cursor);
     }
