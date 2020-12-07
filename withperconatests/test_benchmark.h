@@ -213,6 +213,9 @@ lookup_checkf (uint32_t keylen, const void *key, uint32_t vallen, const void *va
         struct check_pair *pair = (struct check_pair *) pair_v;
         if (key!=NULL) {
             if (pair->keylen!=len_ignore) {
+#ifdef DEBUG
+		printf("Keylen of given pair is %d, and pair is %d\n", pair->keylen, keylen);
+#endif
                 assert(pair->keylen == keylen);
                 if (pair->key) 
                     assert(memcmp(pair->key, key, keylen)==0);
