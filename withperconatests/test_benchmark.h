@@ -214,20 +214,47 @@ lookup_checkf (uint32_t keylen, const void *key, uint32_t vallen, const void *va
         if (key!=NULL) {
             if (pair->keylen!=len_ignore) {
 #ifdef DEBUG
-		printf("Keylen of given pair is %d, and pair is %d\n", pair->keylen, keylen);
+		printf("Keylen of given pair is %u, and pair is %u\n", pair->keylen, keylen);
 #endif
                 assert(pair->keylen == keylen);
-                if (pair->key) 
+                if (pair->key){ 
+#ifdef DEBUG
+		char tkey[keylen];
+		memcpy(tkey, key, keylen);
+		char tpkey[keylen];
+		memcpy(tpkey, pair->key, keylen);
+		printf("Pair key given by '%.*s', and result key is '%.*s'\n", keylen, tkey, keylen, tpkey);
+#endif
                     assert(memcmp(pair->key, key, keylen)==0);
+		}
             }
+#ifdef DEBUG
+		char tval[vallen];
+		memcpy(tval, val, vallen);
+		char tpval[vallen];
+		memcpy(tpval, pair->val, vallen);
+		printf("Pair value is given by len %u, '%.*s' and '%.*s'\n", vallen, vallen, tval, vallen, tpval);
+#endif
             if (pair->vallen!=len_ignore) {
                 assert(pair->vallen == vallen);
                 if (pair->val)
-                    assert(memcmp(pair->val, val, vallen)==0);
-            }
+		{
+#ifdef DEBUG
+		//char tval[vallen];
+		memcpy(tval, val, vallen);
+		//char tpval[vallen];
+		memcpy(tpval, pair->val, vallen);
+		printf("Pair value is given by %.*s and %.*s\n", vallen, tval, vallen, tpval);
+#endif
+                assert(memcmp(pair->val, val, vallen)==0);
+                }
+	    }
             pair->call_count++; // this call_count is really how many calls were made with r==0
         }
     }
+#ifdef DEBUG
+    printf("Finish call count.\n");
+#endif
     return 0;
 }
 

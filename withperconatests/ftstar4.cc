@@ -44,7 +44,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #ifndef MIN
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
-const double USECS_PER_SEC = 1000000.0;
+//const double USECS_PER_SEC = 1000000.0;
 
 #define TOKU_TEST_FILENAME "/dev/treenvme0"
 //#define TOKU_TEST_FILENAME1 "/dev/nvme0n1"

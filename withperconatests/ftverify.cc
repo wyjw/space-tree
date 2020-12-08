@@ -41,8 +41,13 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include <linux/fs.h>
 
 #define DEBUG 1
-//#define DEBUGMAX 1
+#define DEBUGMAX 1
+#define DEBUGMAXONE 1
+#define DEBUGVAL 1
 #define TIME 1
+#define LEN 30
+#define VALLEN 120
+
 static TOKUTXN const null_txn = 0;
 static int fd = 0;
 
@@ -86,21 +91,40 @@ static void test_inserts(void) {
 	// add key and value
     	int k;
     	DBT key, val;
-    	const int val_size = 1024 * 1024;
-    	char *XMALLOC_N(val_size, val_buf);
-    	memset(val_buf, (char)(i + 4), val_size);
-    	toku_fill_dbt(&val, val_buf, val_size);
+    	const int val_size = VALLEN;
+    	
+	// Ignore these, memset is wierd. use char and for-loop instead.
+	// char *XMALLOC_N(val_size, val_buf);
+    	// memset(val_buf, (char)((i % 70) + '0'), val_size);
+
+	int vlen = val_size;
+	char tv[vlen];
+	for (int j = i; j < i+vlen-1; j++) {
+	   tv[j-i] = (j % 26) + '0';
+	}
+	tv[vlen-1] = '\0';	
+#ifdef DEBUGVAL
+	//printf("VAL at %d is %.*s\n", i, val_size, val_buf);
+#endif
+    	toku_fill_dbt(&val, &tv, val_size);
 
 	k = toku_htonl(i);
-        toku_fill_dbt(&key, &k, sizeof(k));
+
+	int len = LEN;
+	char tk[len];
+	for (int j = i; j < i+len-1; j++) {
+	   tk[j-i] = (j % 26) + '0';
+	}
+	tk[len-1] = '\0';	
+        toku_fill_dbt(&key, &tk, sizeof(tk));
 #ifdef DEBUG
 	printf("Print row: %d\n", i);
 	printf("KEY SIZE is %d\n", key.size);
 	printf("VAL SIZE is %d\n", val.size);
 #ifdef DEBUGMAX
-	printf("KEY IS: ");
-	for (int i = 0; i < key.size; i++) {
-		printf("%c", ((char *)key.data)[i]);
+	printf("\nKEY IS: ");
+	for (int j = 0; j < key.size; j++) {
+		printf("%c", ((char *)key.data)[j]);
 	}
 	printf("\nVALUE IS: ");
 	for (int j = 0; j < val.size; j++) {
@@ -115,6 +139,12 @@ static void test_inserts(void) {
         toku_ft_insert(ft_handle, &key, &val, NULL);
     }
     
+
+    // check state of all the nodes, everything
+#ifdef DEBUGMAXONE
+    ft->blocktable.dump_translation_table(stdout);
+#endif
+
     //invariant(ft->rightmost_blocknum.b != RESERVED_BLOCKNUM_NULL);
     //invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);  	  
 
@@ -124,6 +154,7 @@ static void test_inserts(void) {
     
     for (int i = 0; i < rows_to_insert; i++)
     {
+	DBT k;
 	int r;
 	int called;
 	FT_CURSOR cursor = 0;
@@ -134,8 +165,21 @@ static void test_inserts(void) {
 	gettimeofday(&t[0], NULL);
 #endif
     	// do one search
-	struct check_pair pair = {4,(char *)i,1024*1024,(char *)(i + 4),0};
-	r = toku_ft_cursor_first(cursor, lookup_checkf, &pair);
+	int len = LEN;
+	char tk[len];
+	for (int j = i; j < i+len-1; j++) {
+	   tk[j-i] = (j % 26) + '0';
+	}
+	tk[len-1] = '\0';	
+	int vlen = VALLEN;
+	char tv[vlen];
+	for (int j = i; j < i+vlen-1; j++) {
+	   tv[j-i] = (j % 26) + '0';
+	}
+	tv[vlen-1] = '\0';	
+	struct check_pair pair = {LEN,tk,VALLEN,tv,0};
+	// r = toku_ft_cursor_first(cursor, lookup_checkf, &pair);
+	r = toku_ft_lookup(ft_handle, toku_fill_dbt(&k, &tk, LEN), lookup_checkf, &pair);
 #ifdef TIME
 	gettimeofday(&t[1], NULL);
 	double dt;
