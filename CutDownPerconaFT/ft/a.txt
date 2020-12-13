@@ -1,0 +1,90 @@
+CMakeLists.txt:60:  serialize/block_table
+CMakeLists.txt:125:    FILES serialize/block_table.h serialize/block_allocator.h serialize/ft-serialize.h ${ser_h}
+serialize/block_table.h:98:class block_table {
+serialize/ft-serialize.cc:43:#include "ft/serialize/block_table.h"
+serialize/ft-serialize.cc:111:deserialize_descriptor_from(int fd, block_table *bt, DESCRIPTOR desc, int layout_version) {
+serialize/ft-serialize.cc:856:void toku_serialize_ft_to(int fd, FT_HEADER h, block_table *bt, CACHEFILE cf) {
+serialize/block_table.cc:50:#include "ft/serialize/block_table.h"
+serialize/block_table.cc:58:toku_instr_key *block_table_mutex_key;
+serialize/block_table.cc:72:void block_table::_mutex_lock() { toku_mutex_lock(&_mutex); }
+serialize/block_table.cc:74:void block_table::_mutex_unlock() { toku_mutex_unlock(&_mutex); }
+serialize/block_table.cc:78:    block_table *bt = &ft->blocktable;
+serialize/block_table.cc:84:    block_table *bt = &ft->blocktable;
+serialize/block_table.cc:101:void block_table::_create_internal() {
+serialize/block_table.cc:107:    toku_mutex_init(*block_table_mutex_key, &_mutex, nullptr);
+serialize/block_table.cc:120:// block_table.
+serialize/block_table.cc:121:int block_table::create_from_buffer(
+serialize/block_table.cc:168:void block_table::create() {
+serialize/block_table.cc:204:void block_table::_maybe_truncate_file(int fd, uint64_t size_needed_before) {
+serialize/block_table.cc:232:void block_table::maybe_truncate_file_on_open(int fd) {
+serialize/block_table.cc:238:void block_table::_copy_translation(struct translation *dst,
+serialize/block_table.cc:269:int64_t block_table::get_blocks_in_use_unlocked() {
+serialize/block_table.cc:285:void block_table::_maybe_optimize_translation(struct translation *t) {
+serialize/block_table.cc:329:void block_table::note_start_checkpoint_unlocked() {
+serialize/block_table.cc:342:void block_table::note_skipped_checkpoint() {
+serialize/block_table.cc:362:void block_table::note_end_checkpoint(int fd) {
+serialize/block_table.cc:402:bool block_table::_is_valid_blocknum(struct translation *t, BLOCKNUM b) {
+serialize/block_table.cc:407:void block_table::_verify_valid_blocknum(struct translation *UU(t),
+serialize/block_table.cc:412:bool block_table::_is_valid_freeable_blocknum(struct translation *t,
+serialize/block_table.cc:419:void block_table::_verify_valid_freeable_blocknum(struct translation *UU(t),
+serialize/block_table.cc:425:void block_table::block_free(uint64_t offset, uint64_t size) {
+serialize/block_table.cc:431:int64_t block_table::_calculate_size_on_disk(struct translation *t) {
+serialize/block_table.cc:440:bool block_table::_translation_prevents_freeing(
+serialize/block_table.cc:448:void block_table::_realloc_on_disk_internal(BLOCKNUM b,
+serialize/block_table.cc:486:void block_table::_ensure_safe_write_unlocked(int fd,
+serialize/block_table.cc:508:void block_table::realloc_on_disk(BLOCKNUM b,
+serialize/block_table.cc:523:bool block_table::_pair_is_unallocated(struct block_translation_pair *pair) {
+serialize/block_table.cc:533:void block_table::_alloc_inprogress_translation_on_disk_unlocked() {
+serialize/block_table.cc:560:void block_table::serialize_translation_to_wbuf(int fd,
+serialize/block_table.cc:615:void block_table::_translate_blocknum_to_offset_size_unlocked(BLOCKNUM b,
+serialize/block_table.cc:630:void block_table::translate_blocknum_to_offset_size(BLOCKNUM b,
+serialize/block_table.cc:641:void block_table::_maybe_expand_translation(struct translation *t) {
+serialize/block_table.cc:655:void block_table::_allocate_blocknum_unlocked(BLOCKNUM *res, FT ft) {
+serialize/block_table.cc:681:void block_table::allocate_blocknum(BLOCKNUM *res, FT ft) {
+serialize/block_table.cc:687:void block_table::_free_blocknum_in_translation(struct translation *t,
+serialize/block_table.cc:699:void block_table::_free_blocknum_unlocked(BLOCKNUM *bp,
+serialize/block_table.cc:732:void block_table::free_blocknum(BLOCKNUM *bp, FT ft, bool for_checkpoint) {
+serialize/block_table.cc:739:void block_table::verify_no_free_blocknums() {
+serialize/block_table.cc:745:void block_table::free_unused_blocknums(BLOCKNUM root) {
+serialize/block_table.cc:762:bool block_table::_no_data_blocks_except_root(BLOCKNUM root) {
+serialize/block_table.cc:788:void block_table::verify_no_data_blocks_except_root(BLOCKNUM UU(root)) {
+serialize/block_table.cc:792:bool block_table::_blocknum_allocated(BLOCKNUM b) {
+serialize/block_table.cc:802:void block_table::verify_blocknum_allocated(BLOCKNUM UU(b)) {
+serialize/block_table.cc:807:void block_table::_dump_translation_internal(FILE *f, struct translation *t) {
+serialize/block_table.cc:838:void block_table::dump_translation_table_pretty(FILE *f) {
+serialize/block_table.cc:853:void block_table::dump_translation_table(FILE *f) {
+serialize/block_table.cc:865:void block_table::blocknum_dump_translation(BLOCKNUM b) {
+serialize/block_table.cc:881:void block_table::destroy(void) {
+serialize/block_table.cc:893:int block_table::_translation_deserialize_from_buffer(
+serialize/block_table.cc:940:int block_table::iterate(enum translation_type type,
+serialize/block_table.cc:1005:void block_table::internal_fragmentation(int64_t *total_sizep,
+serialize/block_table.cc:1017:void block_table::_realloc_descriptor_on_disk_unlocked(DISKOFF size,
+serialize/block_table.cc:1025:void block_table::realloc_descriptor_on_disk(DISKOFF size,
+serialize/block_table.cc:1035:void block_table::get_descriptor_offset_size(DISKOFF *offset, DISKOFF *size) {
+serialize/block_table.cc:1042:void block_table::get_fragmentation_unlocked(TOKU_DB_FRAGMENTATION report) {
+serialize/block_table.cc:1094:void block_table::get_info64(struct ftinfo64 *s) {
+serialize/block_table.cc:1120:int block_table::iterate_translation_tables(
+serialize/ft-serialize.h:42:#include "ft/serialize/block_table.h"
+serialize/ft-serialize.h:47:                          block_table *bt,
+serialize/ft_node-serialize.cc:48:#include "ft/serialize/block_table.h"
+serialize/ft_node-serialize.h:46:#include "ft/serialize/block_table.h"
+tests/test.h:52:#include "ft/serialize/block_table.h"
+logger/logger.h:41:#include "ft/serialize/block_table.h"
+logger/logger.cc:44:#include "ft/serialize/block_table.h"
+cachetable/cachetable.h:44:#include "ft/serialize/block_table.h"
+ft-verify.cc:47:#include "ft/serialize/block_table.h"
+loader/loader.cc:58:#include "ft/serialize/block_table.h"
+txn/rollback.cc:41:#include "ft/serialize/block_table.h"
+txn/txn.h:44:#include "ft/serialize/block_table.h"
+txn/rollback-ct-callbacks.cc:42:#include "ft/serialize/block_table.h"
+ft-recount-rows.cc:39:#include "ft/serialize/block_table.h"
+ft.cc:39:#include "ft/serialize/block_table.h"
+ft.cc:1076:    ft->blocktable.iterate(block_table::TRANSLATION_CHECKPOINTED, garbage_helper, &info, true, true);
+ft-cachetable-wrappers.cc:39:#include "ft/serialize/block_table.h"
+ft-flusher.cc:45:#include "ft/serialize/block_table.h"
+ft-internal.h:50:#include "ft/serialize/block_table.h"
+ft-internal.h:198:    block_table blocktable;
+ft-ops.cc:160:#include "ft/serialize/block_table.h"
+ft-ops.cc:4710:    block_table_mutex_key = new toku_instr_key(
+ft-ops.cc:4712:        "block_table_mutex");
+ft-ops.cc:4904:    delete block_table_mutex_key;
