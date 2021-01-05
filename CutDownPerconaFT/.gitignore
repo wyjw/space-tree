@@ -41,3 +41,5 @@ build
 dbg
 
 prefix/
+
+*.swp

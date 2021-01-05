@@ -1746,6 +1746,196 @@ got_value:
     return 0;
 }
 
+int toku_cachetable_get_and_pin_with_dep_pairs_cutdown (
+    CACHEFILE cachefile,
+    CACHEKEY key,
+    uint32_t fullhash,
+    void**value,
+    CACHETABLE_WRITE_CALLBACK write_callback,
+    CACHETABLE_FETCH_CALLBACK fetch_callback,
+    CACHETABLE_PARTIAL_FETCH_REQUIRED_CALLBACK pf_req_callback,
+    CACHETABLE_PARTIAL_FETCH_CALLBACK pf_callback,
+    pair_lock_type lock_type,
+    void* read_extraargs, // parameter for fetch_callback, pf_req_callback, and pf_callback
+    uint32_t num_dependent_pairs, // number of dependent pairs that we may need to checkpoint
+    PAIR* dependent_pairs,
+    enum cachetable_dirty* dependent_dirty // array stating dirty/cleanness of dependent pairs
+    )
+// See cachetable/cachetable.h
+{
+    CACHETABLE ct = cachefile->cachetable;
+    bool wait = false;
+    bool already_slept = false;
+    bool dep_checkpoint_pending[num_dependent_pairs];
+
+    // 
+    // If in the process of pinning the node we add data to the cachetable via a partial fetch
+    // or a full fetch, we may need to first sleep because there is too much data in the 
+    // cachetable. In those cases, we set the bool wait to true and goto try_again, so that
+    // we can do our sleep and then restart the function.
+    //
+beginning:
+    if (wait) {
+        // We shouldn't be holding the read list lock while
+        // waiting for the evictor to remove pairs.
+        already_slept = true;
+        ct->ev.wait_for_cache_pressure_to_subside();
+    }
+
+    ct->list.pair_lock_by_fullhash(fullhash);
+    PAIR p = ct->list.find_pair(cachefile, key, fullhash);
+    if (p) {
+        // on entry, holds p->mutex (which is locked via pair_lock_by_fullhash)
+        // on exit, does not hold p->mutex
+        bool try_again = try_pin_pair(
+            p,
+            ct,
+            cachefile,
+            lock_type,
+            num_dependent_pairs,
+            dependent_pairs,
+            dependent_dirty,
+            pf_req_callback,
+            pf_callback,
+            read_extraargs,
+            already_slept
+            );
+        if (try_again) {
+            wait = true;
+            goto beginning;
+        }
+        else {
+            goto got_value;
+        }
+    }
+    else {
+        toku::context fetch_ctx(CTX_FULL_FETCH);
+
+        ct->list.pair_unlock_by_fullhash(fullhash);
+        // we only want to sleep once per call to get_and_pin. If we have already
+        // slept and there is still cache pressure, then we might as 
+        // well just complete the call, because the sleep did not help
+        // By sleeping only once per get_and_pin, we prevent starvation and ensure
+        // that we make progress (however slow) on each thread, which allows
+        // assumptions of the form 'x will eventually happen'.
+        // This happens in extreme scenarios.
+        if (ct->ev.should_client_thread_sleep() && !already_slept) {
+            wait = true;
+            goto beginning;
+        }
+        if (ct->ev.should_client_wake_eviction_thread()) {
+            ct->ev.signal_eviction_thread();
+        }
+        // Since the pair was not found, we need the write list
+        // lock to add it.  So, we have to release the read list lock
+        // first.
+        ct->list.write_list_lock();
+        ct->list.pair_lock_by_fullhash(fullhash);
+        p = ct->list.find_pair(cachefile, key, fullhash);
+        if (p != NULL) {
+            ct->list.write_list_unlock();
+            // on entry, holds p->mutex,
+            // on exit, does not hold p->mutex
+            bool try_again = try_pin_pair(
+                p,
+                ct,
+                cachefile,
+                lock_type,
+                num_dependent_pairs,
+                dependent_pairs,
+                dependent_dirty,
+                pf_req_callback,
+                pf_callback,
+                read_extraargs,
+                already_slept
+                );
+            if (try_again) {
+                wait = true;
+                goto beginning;
+            }
+            else {
+                goto got_value;
+            }
+        }
+        assert(p == NULL);
+
+        // Insert a PAIR into the cachetable
+        // NOTE: At this point we still have the write list lock held.
+        p = cachetable_insert_at(
+            ct,
+            cachefile,
+            key,
+            zero_value,
+            fullhash,
+            zero_attr,
+            write_callback,
+            CACHETABLE_CLEAN
+            );
+        invariant_notnull(p);
+
+        // Pin the pair.
+        p->value_rwlock.write_lock(true);
+        pair_unlock(p);
+
+
+        if (lock_type != PL_READ) {
+            ct->list.read_pending_cheap_lock();
+            invariant(!p->checkpoint_pending);
+            for (uint32_t i = 0; i < num_dependent_pairs; i++) {
+                dep_checkpoint_pending[i] = dependent_pairs[i]->checkpoint_pending;
+                dependent_pairs[i]->checkpoint_pending = false;
+            }
+            ct->list.read_pending_cheap_unlock();
+        }
+        // We should release the lock before we perform
+        // these expensive operations.
+        ct->list.write_list_unlock();
+
+        if (lock_type != PL_READ) {
+            checkpoint_dependent_pairs(
+                ct,
+                num_dependent_pairs,
+                dependent_pairs,
+                dep_checkpoint_pending,
+                dependent_dirty
+                );
+        }
+        uint64_t t0 = get_tnow();
+
+        // Retrieve the value of the PAIR from disk.
+        // The pair being fetched will be marked as pending if a checkpoint happens during the
+        // fetch because begin_checkpoint will mark as pending any pair that is locked even if it is clean.        
+        cachetable_fetch_pair(ct, cachefile, p, fetch_callback, read_extraargs, true);
+        cachetable_miss++;
+        cachetable_misstime += get_tnow() - t0;
+
+        // If the lock_type requested was a PL_READ, we downgrade to PL_READ,
+        // but if the request was for a PL_WRITE_CHEAP, we don't bother 
+        // downgrading, because we would have to possibly resolve the 
+        // checkpointing again, and that would just make this function even 
+        // messier.
+        //
+        // TODO(yoni): in case of PL_WRITE_CHEAP, write and use
+        // p->value_rwlock.write_change_status_to_not_expensive(); (Also name it better)
+        // to downgrade from an expensive write lock to a cheap one
+        if (lock_type == PL_READ) {
+            pair_lock(p);
+            p->value_rwlock.write_unlock();
+            p->value_rwlock.read_lock();
+            pair_unlock(p);
+            // small hack here for #5439,
+            // for queries, pf_req_callback does some work for the caller,
+            // that information may be out of date after a write_unlock
+            // followed by a read_lock, so we do it again.
+            bool pf_required = pf_req_callback(p->value_data,read_extraargs);
+            assert(!pf_required);
+        }
+        goto got_value;
+    }
+got_value:
+    *value = p->value_data;
+    return 0;
+}
 // Lookup a key in the cachetable.  If it is found and it is not being written, then
 // acquire a read lock on the pair, update the LRU list, and return sucess.
 //

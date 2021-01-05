@@ -5,7 +5,7 @@ CC=clang++
 CFLAGS= -I$(FTDIR)/PerconaInBlockFT/build/buildheader/ -I$(FTDIR)/PerconaInBlockFT/build/ -I$(FTDIR)/PerconaInBlockFT/prefix/include/ -I$(FTDIR)/PerconaInBlockFT/prefix/include/portability/ -I$(FTDIR)/PerconaInBlockFT/prefix/include/ft/ -I$(FTDIR)/PerconaInBlockFT/portability -I$(FTDIR)/PerconaInBlockFT -I$(FTDIR)/PerconaInBlockFT/prefix/include/util/ -I$(FTDIR)/PerconaInBlockFT/util/
 LIBS = -L$(FTDIR)/PerconaInBlockFT/build/ft/ -L$(FTDIR)/PerconaInBlockFT/build/portability/
 
-all: ftstar ftstar2 ftstar4 ftread ftreadnob ftsimple ftverify
+all: ftstar ftstar2 ftstar4 ftread ftreadnob ftsimple ftverify ftverify2
 
 ftstar: ftstar.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
@@ -23,6 +23,9 @@ ftread: ftread.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 ftverify: ftverify.cc
+	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -Wl,-rpath,$(FTDIR)/CutDownPerconaFT/build/ft -Wl,-rpath,$(FTDIR)/CutDownPerconaFT/build/portability -lft -ltokuportability
+
+ftverify2: ftverify2.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 ftreadnob: ftreadnob.cc
@@ -32,4 +35,4 @@ ftsimple: ftsimple.cc
 	$(CC) $(CFLAGS) $(LIBS) $< -o $@ -lft -ltokuportability
 
 clean:
-	rm -f ftstar
+	rm -f ftstar ftstar2 fstar4 ftread ftreadnob ftsimple ftverify ftverify2

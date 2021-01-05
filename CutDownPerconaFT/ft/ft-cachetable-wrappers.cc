@@ -315,6 +315,59 @@ void toku_pin_ftnode(FT ft,
     toku_pin_ftnode_with_dep_nodes(ft, blocknum, fullhash, bfe, lock_type, 0, nullptr, node_p, move_messages);
 }
 
+void
+toku_pin_ftnode_with_dep_nodes_cutdown(
+    FT ft,
+    BLOCKNUM blocknum,
+    uint32_t fullhash,
+    ftnode_fetch_extra *bfe,
+    pair_lock_type lock_type,
+    uint32_t num_dependent_nodes,
+    FTNODE *dependent_nodes,
+    FTNODE *node_p,
+    bool move_messages)
+{
+    void *node_v;
+    PAIR dependent_pairs[num_dependent_nodes];
+    enum cachetable_dirty dependent_dirty_bits[num_dependent_nodes];
+    for (uint32_t i = 0; i < num_dependent_nodes; i++) {
+        dependent_pairs[i] = dependent_nodes[i]->ct_pair;
+        dependent_dirty_bits[i] = (enum cachetable_dirty) dependent_nodes[i]->dirty();
+    }
+
+    int r = toku_cachetable_get_and_pin_with_dep_pairs_cutdown(
+        ft->cf,
+        blocknum,
+        fullhash,
+        &node_v,
+        get_write_callbacks_for_node(ft),
+        toku_ftnode_fetch_callback,
+        toku_ftnode_pf_req_callback,
+        toku_ftnode_pf_callback,
+        lock_type,
+        bfe,
+        num_dependent_nodes,
+        dependent_pairs,
+        dependent_dirty_bits
+        );
+    invariant_zero(r);
+    FTNODE node = (FTNODE) node_v;
+    if (lock_type != PL_READ && node->height > 0 && move_messages) {
+        toku_move_ftnode_messages_to_stale(ft, node);
+    }
+    *node_p = node;
+}
+
+void toku_pin_ftnode_cutdown(FT ft,
+                     BLOCKNUM blocknum,
+                     uint32_t fullhash,
+                     ftnode_fetch_extra *bfe,
+                     pair_lock_type lock_type,
+                     FTNODE *node_p,
+                     bool move_messages) {
+    toku_pin_ftnode_with_dep_nodes_cutdown(ft, blocknum, fullhash, bfe, lock_type, 0, nullptr, node_p, move_messages);
+}
+
 int toku_maybe_pin_ftnode_clean(FT ft, BLOCKNUM blocknum, uint32_t fullhash, pair_lock_type lock_type, FTNODE *nodep) {
     void *node_v;
     int r = toku_cachetable_maybe_get_and_pin_clean(ft->cf, blocknum, fullhash, lock_type, &node_v);

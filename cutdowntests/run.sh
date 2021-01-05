@@ -1,9 +1,13 @@
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftstar 30 30 5 5
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftstar2 30 30 5 5
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftstar3 30 30 5 5
-LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftstar4 30 30 5 5
+#LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftstar4 30 30 5 5
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftsimple
 #LD_PRELOAD="../PerconaInKernelFT/build/ft/libft.so ../PerconaInKernelFT/build/portability/libtokuportability.so" ./ftread
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftreadnob
 #LD_PRELOAD="../PerconaInBlockFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftverifyD
-LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../PerconaInBlockFT/build/portability/libtokuportability.so" ./ftverify
+LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../CutDownPerconaFT/build/portability/libtokuportability.so" ./ftstar 30 30 5 5
+#LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../CutDownPerconaFT/build/portability/libtokuportability.so" ./ftstar2 30 30 5 5
+#LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../CutDownPerconaFT/build/portability/libtokuportability.so" ./ftsimple
+LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../CutDownPerconaFT/build/portability/libtokuportability.so" ./ftread
+LD_PRELOAD="../CutDownPerconaFT/build/ft/libft.so ../CutDownPerconaFT/build/portability/libtokuportability.so" ./ftverify

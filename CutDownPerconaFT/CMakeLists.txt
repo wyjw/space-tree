@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 project(TokuDB)
 
 # suppress -rdynamic
-set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "-g")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # See: https://jira.percona.com/browse/TDB-93

@@ -111,6 +111,17 @@ void toku_pin_ftnode(
     bool move_messages
     );
 
+// Pins a node and the rest of the nodes in a traversal.
+void toku_pin_ftnode_cutdown(
+    FT ft,
+    BLOCKNUM blocknum,
+    uint32_t fullhash,
+    ftnode_fetch_extra *bfe,
+    pair_lock_type lock_type,
+    FTNODE *node_p,
+    bool move_messages
+    );
+
 // Pins an ftnode with dependent pairs
 // Unlike toku_pin_ftnode_for_query, this function blocks until the node is pinned.
 void toku_pin_ftnode_with_dep_nodes(

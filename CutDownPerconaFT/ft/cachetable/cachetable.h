@@ -363,6 +363,22 @@ int toku_cachetable_get_and_pin_with_dep_pairs (
     enum cachetable_dirty* dependent_dirty // array stating dirty/cleanness of dependent pairs
     );
 
+int toku_cachetable_get_and_pin_with_dep_pairs_cutdown (
+    CACHEFILE cachefile,
+    CACHEKEY key,
+    uint32_t fullhash,
+    void**value,
+    CACHETABLE_WRITE_CALLBACK write_callback,
+    CACHETABLE_FETCH_CALLBACK fetch_callback,
+    CACHETABLE_PARTIAL_FETCH_REQUIRED_CALLBACK pf_req_callback,
+    CACHETABLE_PARTIAL_FETCH_CALLBACK pf_callback,
+    pair_lock_type lock_type,
+    void* read_extraargs, // parameter for fetch_callback, pf_req_callback, and pf_callback
+    uint32_t num_dependent_pairs, // number of dependent pairs that we may need to checkpoint
+    PAIR* dependent_pairs,
+    enum cachetable_dirty* dependent_dirty // array stating dirty/cleanness of dependent pairs
+    );
+
 // Get and pin a memory object.
 // Effects: If the memory object is in the cachetable acquire the PAIR lock on it.
 // Otherwise, fetch it from storage by calling the fetch callback.  If the fetch

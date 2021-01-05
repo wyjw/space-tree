@@ -42,12 +42,12 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #define DEBUG 1
 #define DEBUGMAX 1
-#define DEBUGMAXONE 1
+//#define DEBUGMAXONE 1
 #define DEBUGVAL 1
 #define TIME 1
 #define LEN 30
 #define VALLEN 120
-#define CLEAR 1
+#define FLUSH 1
 
 static TOKUTXN const null_txn = 0;
 static int fd = 0;
@@ -148,16 +148,22 @@ static void test_inserts(void) {
 
     //invariant(ft->rightmost_blocknum.b != RESERVED_BLOCKNUM_NULL);
     //invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);  	  
-
+#ifdef FLUSH
+	printf("Got here before second loop.\n");
+#endif
     // sync parts
     // struct treenvme_block_table tbl;
-    // sync_blocktable(ft, &tbl, fd, filesize);
-    
+    // sync_blocktable(ft, &tbl, fd, filesize); 
     for (int i = 0; i < rows_to_insert; i++)
     {
 	DBT k;
 	int r;
 	int called;
+#ifdef FLUSH
+    	//CACHEFILE cf;
+    	//cf = ft_h->ft->cf;
+	cachetable_flush_cachefile(ct, NULL, true);
+#endif
 	FT_CURSOR cursor = 0;
 	r = toku_ft_cursor(ft_handle, &cursor, null_txn, false, false);
 	CKERR(r);
