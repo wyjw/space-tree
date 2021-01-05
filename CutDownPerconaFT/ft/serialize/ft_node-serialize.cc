@@ -2570,6 +2570,17 @@ exit:
     return r;
 }
 
+#define printk printf
+#define _cast_voidp(name, val) name = (__typeof__(name))val
+
+void *_mmalloc(int size) {
+	void *p = malloc(size);
+	return p;
+}
+
+#define MMALLOC(v) _cast_voidp(v, _mmalloc(sizeof(*v)))
+#define MMALLOC_N(n,v) _cast_voidp(v, _mmalloc((n)*sizeof(*v)))
+
 // Effect: deserializes a ftnode that is in rb (with pointer of rb just past the
 // magic) into a FTNODE.
 static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
@@ -2590,7 +2601,14 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
 
     t0 = toku_time_now();
 
-    FTNODE node = alloc_ftnode_for_deserialize(fullhash, blocknum);
+    FTNODE MMALLOC(node);
+    node->fullhash = fullhash;
+    node->blocknum = blocknum;
+    node->oldest_referenced_xid_known = TXNID_NONE;
+    node->bp = NULL;
+    node->ct_pair = NULL;
+    
+    //FTNODE node = alloc_ftnode_for_deserialize(fullhash, blocknum);
 
     // now start reading from rbuf
     // first thing we do is read the header information
@@ -2598,59 +2616,16 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
     rbuf_literal_bytes(rb, &magic, 8);
     if (memcmp(magic, "tokuleaf", 8) != 0 &&
         memcmp(magic, "tokunode", 8) != 0) {
-        fprintf(stderr,
-                "%s:%d:deserialize_ftnode_from_rbuf - "
-                "file[%s], blocknum[%ld], unrecognized magic number "
-                "%2.2x %2.2x %2.2x %2.2x   %2.2x %2.2x %2.2x %2.2x\n",
-                __FILE__,
-                __LINE__,
-                fname ? fname : "unknown",
-                blocknum.b,
-                static_cast<const uint8_t *>(magic)[0],
-                static_cast<const uint8_t *>(magic)[1],
-                static_cast<const uint8_t *>(magic)[2],
-                static_cast<const uint8_t *>(magic)[3],
-                static_cast<const uint8_t *>(magic)[4],
-                static_cast<const uint8_t *>(magic)[5],
-                static_cast<const uint8_t *>(magic)[6],
-                static_cast<const uint8_t *>(magic)[7]);
-        dump_bad_block(rb->buf, rb->size);
-
-        r = toku_db_badformat();
+	printk("First 8 magic bytes broken.\n");
         goto cleanup;
     }
 
     node->layout_version_read_from_disk = rbuf_int(rb);
-    lazy_assert(node->layout_version_read_from_disk >= FT_LAYOUT_MIN_SUPPORTED_VERSION);
 
     // Check if we are reading in an older node version.
     if (node->layout_version_read_from_disk <= FT_LAYOUT_VERSION_14) {
-        int version = node->layout_version_read_from_disk;
-        // Perform the upgrade.
-        r = deserialize_and_upgrade_ftnode(node, ndd, blocknum, bfe, info, fd);
-        if (r != 0) {
-            fprintf(stderr,
-                    "%s:%d:deserialize_ftnode_from_rbuf - "
-                    "file[%s], blocknum[%ld], deserialize_and_upgrade_ftnode "
-                    "failed with %d\n",
-                    __FILE__,
-                    __LINE__,
-                    fname ? fname : "unknown",
-                    blocknum.b,
-                    r);
-            dump_bad_block(rb->buf, rb->size);
-            goto cleanup;
-        }
-
-        if (version <= FT_LAYOUT_VERSION_13) {
-            // deprecate 'TOKU_DB_VALCMP_BUILTIN'. just remove the flag
-            node->flags &= ~TOKU_DB_VALCMP_BUILTIN_13;
-        }
-
-        // If everything is ok, just re-assign the ftnode and retrn.
-        *ftnode = node;
-        r = 0;
-        goto cleanup;
+        printk("Layout_version broken.");
+	goto cleanup;
     }
 
     // Upgrade versions after 14 to current.  This upgrade is trivial, it
@@ -2661,8 +2636,8 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
     node->layout_version_original = rbuf_int(rb);
     node->build_id = rbuf_int(rb);
     node->n_children = rbuf_int(rb);
-    XMALLOC_N(node->n_children, node->bp);
-    XMALLOC_N(node->n_children, *ndd);
+    MMALLOC_N(node->n_children, node->bp);
+    MMALLOC_N(node->n_children, *ndd);
     // read the partition locations
     for (int i=0; i<node->n_children; i++) {
         BP_START(*ndd,i) = rbuf_int(rb);
@@ -2835,10 +2810,6 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
 
 cleanup:
     if (r == 0) {
-        t1 = toku_time_now();
-        deserialize_time = (t1 - t0) - decompress_time;
-        bfe->deserialize_time += deserialize_time;
-        bfe->decompress_time += decompress_time; 
         toku_ft_status_update_deserialize_times(node, deserialize_time, decompress_time);
     }
     if (r != 0) {
@@ -3280,9 +3251,20 @@ static int deserialize_ftnode_from_fd_cutdown(int fd,
                                       STAT64INFO info) {
     struct rbuf rb = RBUF_INITIALIZER;
 
-    tokutime_t t0 = toku_time_now();
-    read_block_from_fd_into_rbuf(fd, blocknum, bfe->ft, &rb);
-    tokutime_t t1 = toku_time_now();
+    // tokutime_t t0 = toku_time_now();
+    // read_block_from_fd_into_rbuf(fd, blocknum, bfe->ft, &rb);
+    // this is read_block
+    DISKOFF offset, size;
+    bfe->ft->blocktable.translate_blocknum_to_offset_size(blocknum, &offset, &size);
+    DISKOFF size_aligned = roundup_to_multiple(512, size);
+    uint8_t *XMALLOC_N_ALIGNED(512, size_aligned, raw_block);
+    rbuf_init(&rb, raw_block, size);
+    // read the block
+    ssize_t rlen = toku_os_pread(fd, raw_block, size_aligned, offset);
+    assert((DISKOFF)rlen >= size);
+    assert((DISKOFF)rlen <= size_aligned);
+    
+    // tokutime_t t1 = toku_time_now();
 
     // Decompress and deserialize the ftnode. Time statistics
     // are taken inside this function.
@@ -3303,8 +3285,6 @@ static int deserialize_ftnode_from_fd_cutdown(int fd,
         dump_bad_block(rb.buf, rb.size);
     }
 
-    bfe->bytes_read = rb.size;
-    bfe->io_time = t1 - t0;
     toku_free(rb.buf);
     return r;
 }
