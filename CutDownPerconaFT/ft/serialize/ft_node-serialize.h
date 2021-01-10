@@ -92,6 +92,13 @@ int toku_deserialize_ftnode_from(int fd,
                                  FTNODE_DISK_DATA *ndd,
                                  ftnode_fetch_extra *bfe);
 
+int toku_deserialize_ftnode_from_cutdown(int fd,
+                                 BLOCKNUM off,
+                                 uint32_t fullhash,
+                                 FTNODE *node,
+                                 FTNODE_DISK_DATA *ndd,
+                                 ftnode_fetch_extra *bfe);
+
 void toku_serialize_set_parallel(bool);
 
 // used by nonleaf node partial eviction

@@ -827,7 +827,7 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
     // evaluate what piece of the the node is necessary until we get it at
     // least partially into memory
     int r =
-        toku_deserialize_ftnode_from(fd, blocknum, fullhash, node, ndd, bfe);
+        toku_deserialize_ftnode_from_cutdown(fd, blocknum, fullhash, node, ndd, bfe);
 
 #ifdef DEBUG
 	dump_ftnode(*node);    

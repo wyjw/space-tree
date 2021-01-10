@@ -38,9 +38,11 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #include "portability/toku_atomic.h"
 
+#include "dbin.h"
 #include "ft/cachetable/cachetable.h"
 #include "ft/ft.h"
 #include "ft/ft-internal.h"
+#include "ft/cursor.h"
 #include "ft/node.h"
 #include "ft/logger/log-internal.h"
 #include "ft/txn/rollback.h"
@@ -2570,6 +2572,8 @@ exit:
     return r;
 }
 
+// HEADER START
+
 #define printk printf
 #define _cast_voidp(name, val) name = (__typeof__(name))val
 
@@ -2580,6 +2584,211 @@ void *_mmalloc(int size) {
 
 #define MMALLOC(v) _cast_voidp(v, _mmalloc(sizeof(*v)))
 #define MMALLOC_N(n,v) _cast_voidp(v, _mmalloc((n)*sizeof(*v)))
+#define _BP_BLOCKNUM(node,i) ((node)->bp[i].blocknum)
+#define _BP_STATE(node,i) ((node)->bp[i].state)
+#define _BP_WORKDONE(node,i) ((node)->bp[i].workdone)
+
+struct _sub_block {
+	void *uncompressed_ptr;
+	uint32_t uncompressed_size;
+	void *compressed_ptr;
+	uint32_t compressed_size;
+	uint32_t compressed_size_bound;
+	uint32_t xsum;
+};
+
+void _sub_block_init(struct _sub_block *sb) {
+	sb->uncompressed_ptr = 0;
+	sb->uncompressed_size = 0;
+	sb->compressed_ptr = 0;
+	sb->compressed_size_bound = 0;
+	sb->compressed_size = 0;
+	sb->xsum = 0;
+}
+
+int _read_compressed_sub_block(struct rbuf *rb, struct _sub_block *sb)
+{
+	int r = 0;
+	sb->compressed_size = rbuf_int(rb);
+	sb->uncompressed_size = rbuf_int(rb);
+	const void **cp = (const void **) &sb->compressed_ptr;
+	rbuf_literal_bytes(rb, cp, sb->compressed_size);
+	sb->xsum = rbuf_int(rb);
+	
+	// decompress; only no compression
+	sb->uncompressed_ptr = _mmalloc(sb->uncompressed_size);
+	memcpy(sb->uncompressed_ptr, sb->compressed_ptr + 1, sb->compressed_size -1);
+
+	return r;
+}
+
+int _deserialize_ftnode_info(struct _sub_block *sb, FTNODE node) {
+    int r = 0;
+    const char *fname = toku_ftnode_get_cachefile_fname_in_env(node);
+
+    uint32_t data_size;
+    data_size = sb->uncompressed_size - 4; // checksum is 4 bytes at end
+
+    struct rbuf rb;
+    rbuf_init(&rb, (unsigned char *) sb->uncompressed_ptr, data_size);
+
+    node->max_msn_applied_to_node_on_disk = rbuf_MSN(&rb);
+    (void)rbuf_int(&rb);
+    node->flags = rbuf_int(&rb);
+    node->height = rbuf_int(&rb);
+    if (node->layout_version_read_from_disk < FT_LAYOUT_VERSION_19) {
+        (void) rbuf_int(&rb); // optimized_for_upgrade
+    }
+    if (node->layout_version_read_from_disk >= FT_LAYOUT_VERSION_22) {
+        rbuf_TXNID(&rb, &node->oldest_referenced_xid_known);
+    }
+    if (node->n_children > 1) {
+        node->pivotkeys.deserialize_from_rbuf(&rb, node->n_children - 1);
+    } else {
+        node->pivotkeys.create_empty();
+    }
+    if (node->height > 0) {
+        for (int i = 0; i < node->n_children; i++) {
+            _BP_BLOCKNUM(node, i) = rbuf_blocknum(&rb);
+            _BP_WORKDONE(node, i) = 0;
+        }
+    }
+    if (data_size != rb.ndone) {
+    	printk("Bad data size in ftnode info.\n"); 
+    }
+exit:
+    return r;
+}
+
+struct _dbt{
+	void *data;
+	uint32_t size;
+	uint32_t ulen;
+	uint32_t flags;
+};
+
+typedef int (*_compare_func)(struct _dbt *a, struct _dbt *b); 
+typedef int (*_old_compare_func)(DB *db, const DBT *a, const DBT *b);
+
+struct _dbt *_init_dbt(struct _dbt *dbt)
+{
+	memset(dbt, 0, sizeof(*dbt));
+	return dbt;
+}
+
+struct _comparator{
+	_compare_func _cmp;
+	uint8_t _memcpy_magic;
+};
+
+void _convert_dbt_to_tokudbt(DBT *a, struct _dbt *b) {
+	a->data = b->data;
+	a->size = b->size;
+	a->ulen= b->ulen;
+	a->flags = b->flags;
+}
+
+void _convert_tokudbt_to_dbt(struct _dbt *a, DBT *b) {
+	a->data = b->data;
+	a->size = b->size;
+	a->ulen = b->ulen;
+	a->flags = b->flags;
+}
+
+// do we need this?
+// static inline int _search_which_child_cmp_with_bound(struct comparator &cmp, FTNODE node, int childnum, ft_search *search, struct _dbt *dbt);
+
+//int _search_which_child(struct _comparator &cmp, FTNODE node, ft_search *search) {
+int _search_which_child(const toku::comparator &cmp, FTNODE node, ft_search *search) {
+	struct _dbt pivotkey;
+	DBT a;
+	toku_init_dbt(&a);
+	_init_dbt(&pivotkey);
+
+	int lo = 0;
+	int hi = node->n_children - 1;
+	int mi;
+	while (lo < hi) {
+		mi = (lo + hi) / 2;
+		_convert_dbt_to_tokudbt(&a, &pivotkey);
+		node->pivotkeys.fill_pivot(mi, &a);
+		bool c = search->compare(*search, &a);
+		if (((search->direction == FT_SEARCH_LEFT) && c) ||
+			((search->direction == FT_SEARCH_RIGHT) && !c)) {
+			hi = mi;
+		}
+		else {
+			lo = mi + 1;
+		}
+	}
+
+	// ready to return something 
+	// https://github.com/percona/PerconaFT/blob/d627ac564ae11944a363e18749c9eb8291b8c0ac/ft/ft-ops.cc#L3674
+	
+	/*	
+	if (search->pivot_bound.data != nullptr) {
+		if (search->direction == FT_SEARCH_LEFT) {
+			while (lo < node->n_children - 1 && search_which_child_cmp_with_bound(cmp, node, lo, search, &pivotkey) <= 0) {
+				lo++;
+			}
+		}
+		else {
+			while (lo > 0 && search_which_child_cmp_with_bound(cmp, node, lo - 1, search, &pivotkey) >= 0) {
+				lo--;
+			}
+		}
+	}
+	*/
+	return lo;
+}
+
+// this is just an example
+static int long_key_cmp(struct _dbt *a, struct _dbt *b) {
+	const long *CAST_FROM_VOIDP(x, a->data);
+	const long *CAST_FROM_VOIDP(y, b->data);
+	return (*x > *y) - (*x < *y);
+}	
+
+void _setup_ftnode_partitions(FTNODE node, ftnode_fetch_extra *bfe, bool data_in_memory) {
+	if (bfe->type == ftnode_fetch_subset) {
+		bfe->child_to_read = _search_which_child(bfe->ft->cmp, node, bfe->search);
+	}
+	// setup_partitions_using_bfe
+	// https://github.com/percona/PerconaFT/blob/d627ac564ae11944a363e18749c9eb8291b8c0ac/ft/serialize/ft_node-serialize.cc
+	int lc, rc;
+	if (bfe->type == ftnode_fetch_subset)
+	{
+		lc = bfe->leftmost_child_wanted(node);
+		rc = bfe->rightmost_child_wanted(node);
+	}
+
+    	for (int i = 0; i < node->n_children; i++) {
+        	BP_INIT_UNTOUCHED_CLOCK(node,i);
+        	if (data_in_memory) {
+            		BP_STATE(node, i) = ((bfe->wants_child_available(i) || (lc <= i && i <= rc))
+                                 ? PT_AVAIL : PT_COMPRESSED);
+        	} else {
+            		BP_STATE(node, i) = PT_ON_DISK;
+        	}
+        	BP_WORKDONE(node,i) = 0;
+
+        	switch (BP_STATE(node,i)) {
+        	case PT_AVAIL:
+            		setup_available_ftnode_partition(node, i);
+            		BP_TOUCH_CLOCK(node,i);
+            		break;
+        	case PT_COMPRESSED:
+            		set_BSB(node, i, sub_block_creat());
+            		break;
+        	case PT_ON_DISK:
+            		set_BNULL(node, i);
+            		break;
+        	case PT_INVALID:
+            		abort();
+        	}
+    	}
+}
+// HEADER END
 
 // Effect: deserializes a ftnode that is in rb (with pointer of rb just past the
 // magic) into a FTNODE.
@@ -2592,7 +2801,7 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
                                         struct rbuf *rb,
                                         int fd) {
     int r = 0;
-    struct sub_block sb_node_info;
+    struct _sub_block sb_node_info;
 
     tokutime_t t0, t1;
     tokutime_t decompress_time = 0;
@@ -2649,72 +2858,26 @@ static int deserialize_ftnode_from_rbuf_cutdown(FTNODE *ftnode,
     uint32_t stored_checksum;
     stored_checksum = rbuf_int(rb);
     if (stored_checksum != checksum) {
-        fprintf(
-            stderr,
-            "%s:%d:deserialize_ftnode_from_rbuf - "
-            "file[%s], blocknum[%ld], stored_checksum[%d] != checksum[%d]\n",
-            __FILE__,
-            __LINE__,
-            fname ? fname : "unknown",
-            blocknum.b,
-            stored_checksum,
-            checksum);
-        dump_bad_block(rb->buf, rb->size);
-        invariant(stored_checksum == checksum);
+    	printk("Bad checksum.\n");
     }
 
     // now we read and decompress the pivot and child information
-    sub_block_init(&sb_node_info);
+    _sub_block_init(&sb_node_info);
     {
-        tokutime_t sb_decompress_t0 = toku_time_now();
-        r = read_and_decompress_sub_block(rb, &sb_node_info);
-        tokutime_t sb_decompress_t1 = toku_time_now();
-        decompress_time += sb_decompress_t1 - sb_decompress_t0;
+        r = _read_compressed_sub_block(rb, &sb_node_info);
         if (r != 0) {
-            fprintf(
-                stderr,
-                "%s:%d:deserialize_ftnode_from_rbuf - "
-                "file[%s], blocknum[%ld], read_and_decompress_sub_block failed "
-                "with %d\n",
-                __FILE__,
-                __LINE__,
-                fname ? fname : "unknown",
-                blocknum.b,
-                r);
-            dump_bad_block(
-                static_cast<unsigned char *>(sb_node_info.uncompressed_ptr),
-                sb_node_info.uncompressed_size);
-            dump_bad_block(rb->buf, rb->size);
-            goto cleanup;
-        }
+       		printk("Read and decompress messed up.\n");
+		goto cleanup;
+	}
     }
 
     // at this point, sb->uncompressed_ptr stores the serialized node info
-    r = deserialize_ftnode_info(&sb_node_info, node);
+    r = _deserialize_ftnode_info(&sb_node_info, node);
     if (r != 0) {
-        fprintf(
-            stderr,
-            "%s:%d:deserialize_ftnode_from_rbuf - "
-            "file[%s], blocknum[%ld], deserialize_ftnode_info failed with "
-            "%d\n",
-            __FILE__,
-            __LINE__,
-            fname ? fname : "unknown",
-            blocknum.b,
-            r);
-        dump_bad_block(rb->buf, rb->size);
         goto cleanup;
     }
-    toku_free(sb_node_info.uncompressed_ptr);
-
-    // now that the node info has been deserialized, we can proceed to
-    // deserialize the individual sub blocks
-
-    // setup the memory of the partitions
-    // for partitions being decompressed, create either message buffer or
-    //   basement node
-    // for partitions staying compressed, create sub_block
-    setup_ftnode_partitions(node, bfe, true);
+    free(sb_node_info.uncompressed_ptr);
+    _setup_ftnode_partitions(node, bfe, true);
 
     // This loop is parallelizeable, since we don't have a dependency on the
     // work done so far.
