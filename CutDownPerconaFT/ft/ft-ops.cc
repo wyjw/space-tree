@@ -147,6 +147,7 @@ basement nodes, bulk fetch,  and partial fetch:
 
 */
 
+#include "ft/serialize/dbin.h"
 #include "ft/cachetable/checkpoint.h"
 #include "ft/cursor.h"
 #include "ft/ft-cachetable-wrappers.h"
@@ -4341,6 +4342,7 @@ try_again:
         );
     FTNODE node = NULL;
 #ifdef CUTDOWN
+    FTNODE _node = NULL;
     {
 	uint32_t fullhash;
 	CACHEKEY root_key;
