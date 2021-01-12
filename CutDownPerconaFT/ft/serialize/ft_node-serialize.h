@@ -93,7 +93,7 @@ int toku_deserialize_ftnode_from(int fd,
                                  ftnode_fetch_extra *bfe);
 
 int toku_deserialize_ftnode_from_cutdown(int fd,
-                                 BLOCKNUM off,
+                                 _BLOCKNUM off,
                                  uint32_t fullhash,
                                  FTNODE *node,
                                  FTNODE_DISK_DATA *ndd,

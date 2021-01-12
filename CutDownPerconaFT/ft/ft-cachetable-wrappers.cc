@@ -42,6 +42,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "ft/ft-internal.h"
 #include "ft/ft.h"
 #include "ft/node.h"
+#include "ft/serialize/dbin.h"
 
 #include <util/context.h>
 
@@ -318,13 +319,13 @@ void toku_pin_ftnode(FT ft,
 void
 toku_pin_ftnode_with_dep_nodes_cutdown(
     FT ft,
-    BLOCKNUM blocknum,
+    _BLOCKNUM blocknum,
     uint32_t fullhash,
     ftnode_fetch_extra *bfe,
     pair_lock_type lock_type,
     uint32_t num_dependent_nodes,
-    FTNODE *dependent_nodes,
-    FTNODE *node_p,
+    struct _ftnode **dependent_nodes,
+    struct _ftnode **node_p,
     bool move_messages)
 {
     void *node_v;
@@ -351,19 +352,21 @@ toku_pin_ftnode_with_dep_nodes_cutdown(
         dependent_dirty_bits
         );
     invariant_zero(r);
-    FTNODE node = (FTNODE) node_v;
+    struct _ftnode *node = (struct _ftnode *) node_v;
+    /*
     if (lock_type != PL_READ && node->height > 0 && move_messages) {
         toku_move_ftnode_messages_to_stale(ft, node);
     }
+    */
     *node_p = node;
 }
 
 void toku_pin_ftnode_cutdown(FT ft,
-                     BLOCKNUM blocknum,
+                     _BLOCKNUM blocknum,
                      uint32_t fullhash,
                      ftnode_fetch_extra *bfe,
                      pair_lock_type lock_type,
-                     FTNODE *node_p,
+                     struct _ftnode **node_p,
                      bool move_messages) {
     toku_pin_ftnode_with_dep_nodes_cutdown(ft, blocknum, fullhash, bfe, lock_type, 0, nullptr, node_p, move_messages);
 }
@@ -392,6 +395,27 @@ void toku_unpin_ftnode(FT ft, FTNODE node) {
 
 void
 toku_unpin_ftnode_read_only(FT ft, FTNODE node)
+{
+    int r = toku_cachetable_unpin(
+        ft->cf,
+        node->ct_pair,
+        (enum cachetable_dirty) node->dirty(),
+        make_invalid_pair_attr()
+        );
+    assert(r==0);
+}
+
+void toku_unpin_ftnode_cutdown(FT ft, struct _ftnode *node) {
+     
+    int r = toku_cachetable_unpin(ft->cf,
+                                  node->ct_pair,
+                                  static_cast<enum cachetable_dirty>(node->dirty()),
+                                  make_ftnode_pair_attr_cutdown(node));
+    invariant_zero(r);
+}
+
+void
+toku_unpin_ftnode_read_only_cutdown(FT ft, struct _ftnode *node)
 {
     int r = toku_cachetable_unpin(
         ft->cf,

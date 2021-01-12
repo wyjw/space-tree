@@ -637,6 +637,14 @@ void block_table::translate_blocknum_to_offset_size(BLOCKNUM b,
     _mutex_unlock();
 }
 
+void block_table::translate_blocknum_to_offset_size_cutdown(_BLOCKNUM b,
+                                                    DISKOFF *offset,
+                                                    DISKOFF *size) {
+    _mutex_lock();
+    BLOCKNUM c = { .b = b.b };
+    _translate_blocknum_to_offset_size_unlocked(b, offset, size);
+    _mutex_unlock();
+}
 // Only called by toku_allocate_blocknum
 // Effect: expand the array to maintain size invariant
 // given that one more never-used blocknum will soon be used.

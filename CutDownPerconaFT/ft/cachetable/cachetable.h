@@ -45,6 +45,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "ft/txn/txn.h"
 #include "ft/ft-status.h"
 #include "util/minicron.h"
+#include "ft/serialize/dbin.h"
 
 // Maintain a cache mapping from cachekeys to values (void*)
 // Some of the keys can be pinned.  Don't pin too many or for too long.
@@ -365,7 +366,7 @@ int toku_cachetable_get_and_pin_with_dep_pairs (
 
 int toku_cachetable_get_and_pin_with_dep_pairs_cutdown (
     CACHEFILE cachefile,
-    CACHEKEY key,
+    _CACHEKEY key,
     uint32_t fullhash,
     void**value,
     CACHETABLE_WRITE_CALLBACK write_callback,

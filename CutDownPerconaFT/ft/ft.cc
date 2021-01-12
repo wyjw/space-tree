@@ -798,6 +798,16 @@ void toku_calculate_root_offset_pointer (
     *root_key = ft->h->root_blocknum;
 }
 
+void toku_calculate_root_offset_pointer_cutdown (
+    FT ft, 
+    _CACHEKEY* root_key, 
+    uint32_t *roothash
+    ) 
+{
+    *roothash = toku_cachetable_hash(ft->cf, ft->h->root_blocknum);
+    *root_key = {.b = ft->h->root_blocknum.b};
+}
+
 void toku_ft_set_new_root_blocknum(
     FT ft, 
     CACHEKEY new_root_key

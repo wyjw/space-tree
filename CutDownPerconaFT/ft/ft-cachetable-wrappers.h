@@ -114,11 +114,11 @@ void toku_pin_ftnode(
 // Pins a node and the rest of the nodes in a traversal.
 void toku_pin_ftnode_cutdown(
     FT ft,
-    BLOCKNUM blocknum,
+    _BLOCKNUM blocknum,
     uint32_t fullhash,
     ftnode_fetch_extra *bfe,
     pair_lock_type lock_type,
-    FTNODE *node_p,
+    struct _ftnode **node_p,
     bool move_messages
     );
 
@@ -148,5 +148,7 @@ int toku_maybe_pin_ftnode_clean(FT ft, BLOCKNUM blocknum, uint32_t fullhash, pai
 void toku_unpin_ftnode(FT ft, FTNODE node);
 void toku_unpin_ftnode_read_only(FT ft, FTNODE node);
 
+void toku_unpin_ftnode_cutdown(FT ft, struct _ftnode *node);
+void toku_unpin_ftnode_read_only_cutdown(FT ft, struct _ftnode *node);
 // Effect: Swaps pair values of two pinned nodes
 void toku_ftnode_swap_pair_values(FTNODE nodea, FTNODE nodeb);

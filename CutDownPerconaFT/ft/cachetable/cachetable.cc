@@ -56,6 +56,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "util/scoped_malloc.h"
 #include "util/status.h"
 #include "util/context.h"
+#include "ft/serialize/dbin.h"
 
 toku_instr_key *cachetable_m_mutex_key;
 toku_instr_key *cachetable_ev_thread_lock_mutex_key;
@@ -1748,7 +1749,7 @@ got_value:
 
 int toku_cachetable_get_and_pin_with_dep_pairs_cutdown (
     CACHEFILE cachefile,
-    CACHEKEY key,
+    _CACHEKEY key,
     uint32_t fullhash,
     void**value,
     CACHETABLE_WRITE_CALLBACK write_callback,
@@ -1783,7 +1784,8 @@ beginning:
     }
 
     ct->list.pair_lock_by_fullhash(fullhash);
-    PAIR p = ct->list.find_pair(cachefile, key, fullhash);
+    CACHEKEY new_key = {.b = key.b};
+    PAIR p = ct->list.find_pair(cachefile, new_key, fullhash);
     if (p) {
         // on entry, holds p->mutex (which is locked via pair_lock_by_fullhash)
         // on exit, does not hold p->mutex
@@ -1831,7 +1833,8 @@ beginning:
         // first.
         ct->list.write_list_lock();
         ct->list.pair_lock_by_fullhash(fullhash);
-        p = ct->list.find_pair(cachefile, key, fullhash);
+    	CACHEKEY new_key = {.b = key.b};
+        p = ct->list.find_pair(cachefile, new_key, fullhash);
         if (p != NULL) {
             ct->list.write_list_unlock();
             // on entry, holds p->mutex,
@@ -1864,7 +1867,7 @@ beginning:
         p = cachetable_insert_at(
             ct,
             cachefile,
-            key,
+            new_key,
             zero_value,
             fullhash,
             zero_attr,

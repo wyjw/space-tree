@@ -276,6 +276,9 @@ uint32_t compute_child_fullhash (CACHEFILE cf, FTNODE node, int childnum) {
     return toku_cachetable_hash(cf, BP_BLOCKNUM(node, childnum));
 }
 
+uint32_t compute_child_fullhash_cutdown (CACHEFILE cf, struct _ftnode *node, int childnum) {
+    return toku_cachetable_hash(cf, BP_BLOCKNUM(node, childnum));
+}
 //
 // pivot bounds
 // TODO: move me to ft/node.cc?
@@ -812,7 +815,7 @@ toku_ft_status_update_pivot_fetch_reason(ftnode_fetch_extra *bfe)
 int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
                                PAIR p,
                                int fd,
-                               BLOCKNUM blocknum,
+                               _BLOCKNUM blocknum,
                                uint32_t fullhash,
                                void **ftnode_pv,
                                void **disk_data,
@@ -823,7 +826,7 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
     assert(*ftnode_pv == nullptr);
     FTNODE_DISK_DATA *ndd = (FTNODE_DISK_DATA *)disk_data;
     ftnode_fetch_extra *bfe = (ftnode_fetch_extra *)extraargs;
-    FTNODE *node = (FTNODE *)ftnode_pv;
+    struct _ftnode **node = (struct _ftnode **)ftnode_pv;
     // deserialize the node, must pass the bfe in because we cannot
     // evaluate what piece of the the node is necessary until we get it at
     // least partially into memory
@@ -831,7 +834,7 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
         toku_deserialize_ftnode_from_cutdown(fd, blocknum, fullhash, node, ndd, bfe);
 
 #ifdef DEBUG
-	dump_ftnode(*node);    
+	//dump_ftnode(*node);    
 #endif
     
     if (r != 0) {
@@ -861,12 +864,14 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
         abort();
     }
 
+    /*
     if (r == 0) {
         *sizep = make_ftnode_pair_attr(*node);
         (*node)->ct_pair = p;
         *dirtyp = (*node)->dirty();  // deserialize could mark the node as dirty
                                      // (presumably for upgrade)
     }
+    */
     return r;
 }
 
@@ -3742,7 +3747,7 @@ ft_search_node (
 static int
 ft_search_node_cutdown (
     FT_HANDLE ft_handle,
-    FTNODE node,
+    struct _ftnode *node,
     ft_search *search,
     int child_to_search,
     FT_GET_CALLBACK_FUNCTION getf,
@@ -3926,15 +3931,15 @@ ft_search_child(FT_HANDLE ft_handle, FTNODE node, int childnum, ft_search *searc
 
 /* search in a node's child */
 static int
-ft_search_child_cutdown(FT_HANDLE ft_handle, FTNODE node, int childnum, ft_search *search, FT_GET_CALLBACK_FUNCTION getf, void *getf_v, bool *doprefetch, FT_CURSOR ftcursor, UNLOCKERS unlockers,
+ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum, ft_search *search, FT_GET_CALLBACK_FUNCTION getf, void *getf_v, bool *doprefetch, FT_CURSOR ftcursor, UNLOCKERS unlockers,
                  ANCESTORS ancestors, const pivot_bounds &bounds, bool can_bulk_fetch)
 // Effect: Search in a node's child.  Searches are read-only now (at least as far as the hardcopy is concerned).
 {
-    struct ancestors next_ancestors = {node, childnum, ancestors};
+    struct _ancestors next_ancestors = {node, childnum, ancestors};
 
-    BLOCKNUM childblocknum = BP_BLOCKNUM(node,childnum);
+    _BLOCKNUM childblocknum = _BP_BLOCKNUM(node,childnum);
     uint32_t fullhash = compute_child_fullhash(ft_handle->ft->cf, node, childnum);
-    FTNODE childnode = nullptr;
+    struct _ftnode *childnode = nullptr;
 
     // If the current node's height is greater than 1, then its child is an internal node.
     // Therefore, to warm the cache better (#5798), we want to read all the partitions off disk in one shot.
@@ -4080,8 +4085,40 @@ maybe_search_save_bound(
     }
 }
 
+static void
+maybe_search_save_bound_cutdown(
+    struct _ftnode *node,
+    int child_searched,
+    ft_search *search)
+{
+    int p = (search->direction == FT_SEARCH_LEFT) ? child_searched : child_searched - 1;
+    if (p >= 0 && p < node->n_children-1) {
+        toku_destroy_dbt(&search->pivot_bound);
+        toku_clone_dbt(&search->pivot_bound, node->pivotkeys.get_pivot(p));
+    }
+}
+
 // Returns true if there are still children left to search in this node within the search bound (if any).
 static bool search_try_again(FTNODE node, int child_to_search, ft_search *search) {
+    bool try_again = false;
+    if (search->direction == FT_SEARCH_LEFT) {
+        if (child_to_search < node->n_children-1) {
+            try_again = true;
+            // if there is a search bound and the bound is within the search pivot then continue the search
+            if (search->k_bound) {
+                FT_HANDLE CAST_FROM_VOIDP(ft_handle, search->context);
+                try_again = (ft_handle->ft->cmp(search->k_bound, &search->pivot_bound) > 0);
+            }
+        }
+    } else if (search->direction == FT_SEARCH_RIGHT) {
+        if (child_to_search > 0)
+            try_again = true;
+    }
+    return try_again;
+}
+
+// Returns true if there are still children left to search in this node within the search bound (if any).
+static bool search_try_again_cutdown(struct _ftnode *node, int child_to_search, ft_search *search) {
     bool try_again = false;
     if (search->direction == FT_SEARCH_LEFT) {
         if (child_to_search < node->n_children-1) {
@@ -4197,7 +4234,7 @@ ft_search_node(
 static int
 ft_search_node_cutdown(
     FT_HANDLE ft_handle,
-    FTNODE node,
+    struct _ftnode *node,
     ft_search *search,
     int child_to_search,
     FT_GET_CALLBACK_FUNCTION getf,
@@ -4276,13 +4313,13 @@ ft_search_node_cutdown(
     // When releasing locks on I/O we must not search the same subtree again, or we won't be guaranteed to make forward progress.
     // If we got a DB_NOTFOUND, then the pivot is too small if searching from left to right (too large if searching from right to left).
     // So save the pivot key in the search object.
-    maybe_search_save_bound(node, child_to_search, search);
+    maybe_search_save_bound_cutdown(node, child_to_search, search);
 
     // as part of #5770, if we can continue searching,
     // we MUST return TOKUDB_TRY_AGAIN,
     // because there is no guarantee that messages have been applied
     // on any other path.
-    if (search_try_again(node, child_to_search, search)) {
+    if (search_try_again_cutdown(node, child_to_search, search)) {
         r = TOKUDB_TRY_AGAIN;
     }
 
@@ -4342,23 +4379,24 @@ try_again:
         );
     FTNODE node = NULL;
 #ifdef CUTDOWN
-    FTNODE _node = NULL;
+    struct _ftnode *_node = NULL;
     {
 	uint32_t fullhash;
 	CACHEKEY root_key;
 	toku_calculate_root_offset_pointer(ft, &root_key, &fullhash);
+	_CACHEKEY new_key = { .b = root_key.b };
 	toku_pin_ftnode_cutdown(
 	    ft,
-	    root_key,
+	    new_key,
 	    fullhash,
 	    &bfe,
 	    PL_READ,
-	    &node,
+	    &_node,
 	    true
 	    );
     }
     
-    uint tree_height = node->height + 1;  // How high is the tree?  This is the height of the root node plus one (leaf is at height 0).
+    uint tree_height = _node->height + 1;  // How high is the tree?  This is the height of the root node plus one (leaf is at height 0).
 
     struct unlock_ftnode_extra unlock_extra   = {ft_handle,node,false};
     struct unlockers                unlockers      = {true, unlock_ftnode_fun, (void*)&unlock_extra, (UNLOCKERS)NULL};
@@ -4366,7 +4404,7 @@ try_again:
     {
         bool doprefetch = false;
         //static int counter = 0;         counter++;
-        r = ft_search_node_cutdown(ft_handle, node, search, bfe.child_to_read, getf, getf_v, &doprefetch, ftcursor, &unlockers, (ANCESTORS)NULL, pivot_bounds::infinite_bounds(), can_bulk_fetch);
+        r = ft_search_node_cutdown(ft_handle, _node, search, bfe.child_to_read, getf, getf_v, &doprefetch, ftcursor, &unlockers, (ANCESTORS)NULL, pivot_bounds::infinite_bounds(), can_bulk_fetch);
         if (r==TOKUDB_TRY_AGAIN) {
             // there are two cases where we get TOKUDB_TRY_AGAIN
             //  case 1 is when some later call to toku_pin_ftnode returned
@@ -4375,7 +4413,7 @@ try_again:
             //  some piece of a node that it needed was not in memory.
             //  In this case, the node was not unpinned, so we unpin it here
             if (unlockers.locked) {
-                toku_unpin_ftnode_read_only(ft_handle->ft, node);
+                toku_unpin_ftnode_read_only_cutdown(ft_handle->ft, _node);
             }
             goto try_again;
         } else {
@@ -4384,7 +4422,7 @@ try_again:
     }
 
     assert(unlockers.locked);
-    toku_unpin_ftnode_read_only(ft_handle->ft, node);
+    toku_unpin_ftnode_read_only_cutdown(ft_handle->ft, _node);
 #else
     {
         uint32_t fullhash;
