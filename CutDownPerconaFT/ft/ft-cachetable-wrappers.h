@@ -100,6 +100,20 @@ toku_pin_ftnode_for_query(
     bool* msgs_applied
     );
 
+int
+toku_pin_ftnode_for_query_cutdown(
+    FT_HANDLE ft_h,
+    _BLOCKNUM blocknum,
+    uint32_t fullhash,
+    UNLOCKERS unlockers,
+    struct _ancestors *ancestors,
+    const pivot_bounds &bounds,
+    ftnode_fetch_extra *bfe,
+    bool apply_ancestor_messages, // this bool is probably temporary, for #3972, once we know how range query estimates work, will revisit this
+    struct _ftnode *node_p,
+    bool* msgs_applied
+    );
+
 // Pins an ftnode without dependent pairs
 void toku_pin_ftnode(
     FT ft,

@@ -42,6 +42,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #include "ft/logger/logger.h"
 #include "ft/serialize/block_table.h"
+#include "ft/serialize/dbin.h"
 #include "ft/txn/txn.h"
 #include "ft/ft-status.h"
 #include "util/minicron.h"
@@ -454,6 +455,8 @@ int toku_cachetable_unpin(CACHEFILE, PAIR, enum cachetable_dirty dirty, PAIR_ATT
 // Returns: 0 if success, otherwise returns an error number.
 // Requires: The ct is locked.
 
+int toku_cachetable_unpin_cutdown(CACHEFILE, PAIR, enum cachetable_dirty dirty, _PAIR_ATTR size);
+
 int toku_cachetable_unpin_ct_prelocked_no_flush(CACHEFILE, PAIR, enum cachetable_dirty dirty, PAIR_ATTR size);
 // Effect: The same as tokud_cachetable_unpin, except that the ct must not be locked.
 // Requires: The ct is NOT locked.
@@ -542,6 +545,7 @@ FILENUM toku_cachefile_filenum(CACHEFILE cf);
 
 // Effect: Return a 32-bit hash key.  The hash key shall be suitable for using with bitmasking for a table of size power-of-two.
 uint32_t toku_cachetable_hash(CACHEFILE cf, CACHEKEY key);
+uint32_t toku_cachetable_hash(CACHEFILE cf, _CACHEKEY key);
 
 uint32_t toku_cachefile_fullhash_of_header(CACHEFILE cf);
 

@@ -37,7 +37,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #ident "Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved."
 
 #pragma once
-
+#define RBUF 1
 #include <string.h>
 
 #include "portability/memory.h"
@@ -46,12 +46,14 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "portability/toku_portability.h"
 #include "util/memarena.h"
 
+#ifndef RBUFDEF
 struct rbuf {
     unsigned char *buf;
     unsigned int  size;
     unsigned int  ndone;
 };
 #define RBUF_INITIALIZER ((struct rbuf){.buf = NULL, .size=0, .ndone=0})
+#endif
 
 static inline void rbuf_init(struct rbuf *r, unsigned char *buf, unsigned int size) {
     r->buf = buf;

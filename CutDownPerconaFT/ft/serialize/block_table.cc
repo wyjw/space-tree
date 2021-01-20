@@ -642,7 +642,7 @@ void block_table::translate_blocknum_to_offset_size_cutdown(_BLOCKNUM b,
                                                     DISKOFF *size) {
     _mutex_lock();
     BLOCKNUM c = { .b = b.b };
-    _translate_blocknum_to_offset_size_unlocked(b, offset, size);
+    _translate_blocknum_to_offset_size_unlocked(c, offset, size);
     _mutex_unlock();
 }
 // Only called by toku_allocate_blocknum

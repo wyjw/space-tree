@@ -594,6 +594,12 @@ uint32_t toku_cachetable_hash (CACHEFILE cachefile, BLOCKNUM key)
     return final(cachefile->hash_id, (uint32_t)(key.b>>32), (uint32_t)key.b);
 }
 
+uint32_t toku_cachetable_hash_cutdown(CACHEFILE cachefile, _BLOCKNUM key)
+// Effect: Return a 32-bit hash key.  The hash key shall be suitable for using with bitmasking for a table of size power-of-two.
+{
+    return final(cachefile->hash_id, (uint32_t)(key.b>>32), (uint32_t)key.b);
+}
+
 #define CLOCK_SATURATION 15
 #define CLOCK_INITIAL_COUNT 3
 
@@ -1833,7 +1839,7 @@ beginning:
         // first.
         ct->list.write_list_lock();
         ct->list.pair_lock_by_fullhash(fullhash);
-    	CACHEKEY new_key = {.b = key.b};
+    	new_key = {.b = key.b};
         p = ct->list.find_pair(cachefile, new_key, fullhash);
         if (p != NULL) {
             ct->list.write_list_unlock();
@@ -2121,7 +2127,58 @@ cachetable_unpin_internal(
     return 0;
 }
 
+static int
+cachetable_unpin_internal(
+    CACHEFILE cachefile, 
+    PAIR p,
+    enum cachetable_dirty dirty, 
+    _PAIR_ATTR attr,
+    bool flush
+    )
+{
+    invariant_notnull(p);
+
+    CACHETABLE ct = cachefile->cachetable;
+    bool added_data_to_cachetable = false;
+
+    // hack for #3969, only exists in case where we run unlockers
+    pair_lock(p);
+    PAIR_ATTR old_attr = p->attr;
+    _PAIR_ATTR _new_attr = attr;
+    PAIR_ATTR new_attr = { .size = _new_attr.size, .nonleaf_size = _new_attr.nonleaf_size, .leaf_size = _new_attr.leaf_size, .rollback_size = _new_attr.rollback_size, .cache_pressure_size = _new_attr.cache_pressure_size, .is_valid = _new_attr.is_valid };
+    if (dirty) {
+        p->dirty = CACHETABLE_DIRTY;
+    }
+    if (attr.is_valid) {
+        p->attr = new_attr;
+    }
+    bool read_lock_grabbed = p->value_rwlock.readers() != 0;
+    unpin_pair(p, read_lock_grabbed);
+    pair_unlock(p);
+    
+    if (attr.is_valid) {
+        if (new_attr.size > old_attr.size) {
+            added_data_to_cachetable = true;
+        }
+        ct->ev.change_pair_attr(old_attr, new_attr);
+    }
+
+    // see comments above this function to understand this code
+    if (flush && added_data_to_cachetable) {
+        if (ct->ev.should_client_thread_sleep()) {
+            ct->ev.wait_for_cache_pressure_to_subside();
+        }
+        if (ct->ev.should_client_wake_eviction_thread()) {
+            ct->ev.signal_eviction_thread();
+        }
+    }
+    return 0;
+}
+
 int toku_cachetable_unpin(CACHEFILE cachefile, PAIR p, enum cachetable_dirty dirty, PAIR_ATTR attr) {
+    return cachetable_unpin_internal(cachefile, p, dirty, attr, true);
+}
+int toku_cachetable_unpin_cutdown(CACHEFILE cachefile, PAIR p, enum cachetable_dirty dirty, _PAIR_ATTR attr) {
     return cachetable_unpin_internal(cachefile, p, dirty, attr, true);
 }
 int toku_cachetable_unpin_ct_prelocked_no_flush(CACHEFILE cachefile, PAIR p, enum cachetable_dirty dirty, PAIR_ATTR attr) {

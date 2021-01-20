@@ -415,6 +415,15 @@ inline const char* toku_ftnode_get_cachefile_fname_in_env(FTNODE node) {
     return nullptr;
 }
 
+inline const char* _toku_ftnode_get_cachefile_fname_in_env(struct _ftnode *node) {
+    if (node->ct_pair) {
+        CACHEFILE cf = toku_pair_get_cachefile(node->ct_pair);
+        if (cf) {
+            return toku_cachefile_fname_in_env(cf);
+        }
+    }
+    return nullptr;
+}
 /**
  * Finds the next child for HOT to flush to, given that everything up to
  * and including k has been flattened.

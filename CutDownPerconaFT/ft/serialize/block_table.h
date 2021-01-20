@@ -44,6 +44,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "portability/toku_pthread.h"
 
 #include "ft/serialize/block_allocator.h"
+#include "ft/serialize/dbin.h"
 #include "util/nb_mutex.h"
 
 struct ft;
@@ -130,6 +131,9 @@ class block_table {
                          bool for_checkpoint);
     void free_blocknum(BLOCKNUM *b, struct ft *ft, bool for_checkpoint);
     void translate_blocknum_to_offset_size(BLOCKNUM b,
+                                           DISKOFF *offset,
+                                           DISKOFF *size);
+    void translate_blocknum_to_offset_size_cutdown(_BLOCKNUM b,
                                            DISKOFF *offset,
                                            DISKOFF *size);
     void free_unused_blocknums(BLOCKNUM root);
