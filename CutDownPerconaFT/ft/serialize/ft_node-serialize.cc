@@ -2783,9 +2783,9 @@ void sub_block_init_cutdown(struct _sub_block *sb) {
 }
 
 
-int deserialize_ftnode_info_cutdown(struct _sub_block *sb, FTNODE node) {
+int deserialize_ftnode_info_cutdown(struct _sub_block *sb, struct _ftnode *node) {
     int r = 0;
-    const char *fname = toku_ftnode_get_cachefile_fname_in_env(node);
+    const char *fname = toku_ftnode_get_cachefile_fname_in_env((FTNODE)&node);
 
     uint32_t data_size;
     data_size = sb->uncompressed_size - 4; // checksum is 4 bytes at end
@@ -2793,7 +2793,9 @@ int deserialize_ftnode_info_cutdown(struct _sub_block *sb, FTNODE node) {
     struct rbuf rb;
     rbuf_init(&rb, (unsigned char *) sb->uncompressed_ptr, data_size);
 
-    node->max_msn_applied_to_node_on_disk = rbuf_MSN(&rb);
+    MSN tmsn = rbuf_MSN(&rb);
+    _MSN _tmsn = { .msn = tmsn.msn };
+    node->max_msn_applied_to_node_on_disk = _tmsn;
     (void)rbuf_int(&rb);
     node->flags = rbuf_int(&rb);
     node->height = rbuf_int(&rb);
@@ -2804,13 +2806,14 @@ int deserialize_ftnode_info_cutdown(struct _sub_block *sb, FTNODE node) {
         rbuf_TXNID(&rb, &node->oldest_referenced_xid_known);
     }
     if (node->n_children > 1) {
-        node->pivotkeys.deserialize_from_rbuf(&rb, node->n_children - 1);
+        deserialize_from_rbuf_cutdown(node->pivotkeys, &rb, node->n_children - 1);
     } else {
-        node->pivotkeys.create_empty();
+        _create_empty_pivot(node->pivotkeys);
     }
     if (node->height > 0) {
         for (int i = 0; i < node->n_children; i++) {
-            _BP_BLOCKNUM(node, i) = rbuf_blocknum(&rb);
+	    BLOCKNUM _bn = rbuf_blocknum(&rb);
+            _BP_BLOCKNUM(node, i) = { .b = _bn.b };
             _BP_WORKDONE(node, i) = 0;
         }
     }
@@ -3026,7 +3029,7 @@ static int deserialize_ftnode_from_rbuf_cutdown(struct _ftnode **ftnode,
     // now we read and decompress the pivot and child information
     sub_block_init_cutdown(&sb_node_info);
     {
-        r = _read_compressed_sub_block(rb, &sb_node_info);
+        r = read_compressed_sub_block_cutdown(rb, &sb_node_info);
         if (r != 0) {
        		printk("Read and decompress messed up.\n");
 		goto cleanup;

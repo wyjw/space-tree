@@ -1,4 +1,5 @@
 #include "ft/serialize/dbin.h"
+#include <string.h>
 
 #ifndef RBUF
 // rbuf methods
@@ -239,8 +240,37 @@ void decompress_cutdown (_Bytef       *dest,   _uLongf destLen,
     memcpy(dest, source + 1, sourceLen - 1);
     return;
 }
-
+/*
 struct _dbt *_get_pivot(_pivot_keys *pk, int a) {
 	return pk->_dbt_keys[a];
+}
+*/
+
+void _create_empty_pivot(_pivot_keys *pk) {
+	pk = (__typeof__(pk))_mmalloc(sizeof(_pivot_keys));
+	pk->_num_pivots = 0;
+	pk->_total_size = 0;
+	pk->_fixed_keys = NULL;
+	pk->_fixed_keylen = 0;
+	pk->_fixed_keylen_aligned = 0;
+	pk->_dbt_keys = NULL;
+}
+
+void deserialize_from_rbuf_cutdown(_pivot_keys *pk, struct rbuf *rb, int n) {
+	pk->_num_pivots = n;
+	pk->_total_size = 0;
+	pk->_fixed_keys = NULL;
+	pk->_fixed_keylen = 0;
+	pk->_dbt_keys = NULL;
+
+	pk->_dbt_keys = (__typeof__(pk->_dbt_keys))_mmalloc(64 * n);
+	for (int i = 0; i < n; i++) {
+		const void *pivotkeyptr;
+		uint32_t size;
+		size = _rbuf_int(rb);
+		_rbuf_literal_bytes(rb, &pivotkeyptr, size);
+		memcpy(&pk->_dbt_keys[i], pivotkeyptr, size);
+		pk->_total_size += size;
+	}
 }
 

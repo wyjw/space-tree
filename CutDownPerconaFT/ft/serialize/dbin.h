@@ -85,7 +85,7 @@ struct _sub_block {
 	uint32_t xsum;
 };
 void sub_block_init_cutdown(struct _sub_block *sb);
-int _read_compressed_sub_block(struct rbuf *rb, struct _sub_block *sb);
+//int _read_compressed_sub_block(struct rbuf *rb, struct _sub_block *sb);
 int deserialize_ftnode_info_cutdown(struct _sub_block *sb, struct _ftnode *ftnode);
 struct _sbt;
 struct _dbt *_init_dbt(struct _dbt *dbt);
@@ -184,6 +184,8 @@ void _convert_tokudbt_to_dbt(struct _dbt* keya, DBT *keyb);
 _PAIR_ATTR make_ftnode_pair_attr_cutdown(struct _ftnode *node);
 uint32_t toku_cachetable_hash_cutdown(CACHEFILE cf, _BLOCKNUM bn);
 struct _dbt *_get_pivot(_pivot_keys *pk, int a);
+void _create_empty_pivot(_pivot_keys *pk);
+void deserialize_from_rbuf_cutdown(_pivot_keys *pk, struct rbuf *rb, int n);
 
 typedef int (*_compare_func)(struct _dbt *a, struct _dbt *b); 
 typedef int (*_old_compare_func)(DB *db, const DBT *a, const DBT *b);

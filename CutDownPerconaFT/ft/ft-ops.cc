@@ -277,7 +277,7 @@ uint32_t compute_child_fullhash (CACHEFILE cf, FTNODE node, int childnum) {
 }
 
 uint32_t compute_child_fullhash_cutdown (CACHEFILE cf, struct _ftnode *node, int childnum) {
-    return toku_cachetable_hash(cf, BP_BLOCKNUM(node, childnum));
+    return toku_cachetable_hash_cutdown(cf, BP_BLOCKNUM(node, childnum));
 }
 //
 // pivot bounds
@@ -815,7 +815,7 @@ toku_ft_status_update_pivot_fetch_reason(ftnode_fetch_extra *bfe)
 int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
                                PAIR p,
                                int fd,
-                               _BLOCKNUM blocknum,
+                               BLOCKNUM blocknum,
                                uint32_t fullhash,
                                void **ftnode_pv,
                                void **disk_data,
@@ -830,8 +830,9 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
     // deserialize the node, must pass the bfe in because we cannot
     // evaluate what piece of the the node is necessary until we get it at
     // least partially into memory
+    _BLOCKNUM _bn = { .b = blocknum.b };
     int r =
-        toku_deserialize_ftnode_from_cutdown(fd, blocknum, fullhash, node, ndd, bfe);
+        toku_deserialize_ftnode_from_cutdown(fd, _bn, fullhash, node, ndd, bfe);
 
 #ifdef DEBUG
 	//dump_ftnode(*node);    
@@ -3755,7 +3756,7 @@ ft_search_node_cutdown (
     bool *doprefetch,
     FT_CURSOR ftcursor,
     UNLOCKERS unlockers,
-    ANCESTORS,
+    struct _ancestors *ans,
     const pivot_bounds &bounds,
     bool can_bulk_fetch
     );
@@ -3971,7 +3972,7 @@ ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum,
 
     struct unlock_ftnode_extra unlock_extra = { ft_handle, (FTNODE)&childnode, msgs_applied };
     struct unlockers next_unlockers = { true, unlock_ftnode_fun, (void *) &unlock_extra, unlockers };
-    int r = ft_search_node_cutdown(ft_handle, childnode, search, bfe.child_to_read, getf, getf_v, doprefetch, ftcursor, &next_unlockers, (ANCESTORS)&next_ancestors, bounds, can_bulk_fetch);
+    int r = ft_search_node_cutdown(ft_handle, childnode, search, bfe.child_to_read, getf, getf_v, doprefetch, ftcursor, &next_unlockers, &next_ancestors, bounds, can_bulk_fetch);
     if (r!=TOKUDB_TRY_AGAIN) {
         // maybe prefetch the next child
         if (r == 0 && node->height == 1) {

@@ -62,6 +62,7 @@ set(FT_SOURCES
   serialize/ft_node-serialize
   serialize/ft-node-deserialize
   serialize/ft-serialize
+  serialize/dbin
   serialize/quicklz
   serialize/sub_block
   txn/rollback
