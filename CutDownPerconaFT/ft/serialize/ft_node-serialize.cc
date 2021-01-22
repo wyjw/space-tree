@@ -2785,6 +2785,7 @@ void sub_block_init_cutdown(struct _sub_block *sb) {
 
 int deserialize_ftnode_info_cutdown(struct _sub_block *sb, struct _ftnode *node) {
     int r = 0;
+    dump_ftnode_cutdown(node);  
     const char *fname = toku_ftnode_get_cachefile_fname_in_env((FTNODE)&node);
 
     uint32_t data_size;
@@ -2806,9 +2807,9 @@ int deserialize_ftnode_info_cutdown(struct _sub_block *sb, struct _ftnode *node)
         rbuf_TXNID(&rb, &node->oldest_referenced_xid_known);
     }
     if (node->n_children > 1) {
-        deserialize_from_rbuf_cutdown(node->pivotkeys, &rb, node->n_children - 1);
+        deserialize_from_rbuf_cutdown(&node->pivotkeys, &rb, node->n_children - 1);
     } else {
-        _create_empty_pivot(node->pivotkeys);
+        _create_empty_pivot(&node->pivotkeys);
     }
     if (node->height > 0) {
         for (int i = 0; i < node->n_children; i++) {
@@ -2876,7 +2877,7 @@ int _search_which_child(const toku::comparator &cmp, struct _ftnode *node, ft_se
 	int mi;
 	while (lo < hi) {
 		mi = (lo + hi) / 2;
-		_fill_pivot(node->pivotkeys, mi, &a);
+		_fill_pivot(&node->pivotkeys, mi, &a);
 		bool c = search->compare(*search, (const DBT *)&a);
 		if (((search->direction == FT_SEARCH_LEFT) && c) ||
 			((search->direction == FT_SEARCH_RIGHT) && !c)) {

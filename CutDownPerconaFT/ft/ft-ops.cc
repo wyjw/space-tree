@@ -4099,7 +4099,7 @@ maybe_search_save_bound_cutdown(
     int p = (search->direction == FT_SEARCH_LEFT) ? child_searched : child_searched - 1;
     if (p >= 0 && p < node->n_children-1) {
         toku_destroy_dbt(&search->pivot_bound);
-        _clone_dbt(&search->pivot_bound, _get_pivot(node->pivotkeys, p));
+        _clone_dbt(&search->pivot_bound, _get_pivot(&node->pivotkeys, p));
     }
 }
 

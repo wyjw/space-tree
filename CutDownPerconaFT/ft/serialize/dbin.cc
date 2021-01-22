@@ -59,7 +59,7 @@ ftnode_memory_size_cutdown(struct _ftnode *node)
     int n_children = node->n_children;
     retval += sizeof(*node);
     retval += (n_children)*(sizeof(node->bp[0]));
-    retval += node->pivotkeys->_total_size;
+    retval += node->pivotkeys._total_size;
 
     for (int i = 0; i < n_children; i++) {
     	//struct _sub_block *sb = BSB(node, i);
@@ -156,7 +156,7 @@ int toku_ftnode_which_child_cutdown(struct _ftnode *node, struct _dbt *k, struct
 
     // check the last key to optimize seq insertions
     int n = node->n_children-1;
-    int c = ft_compare_pivot_cutdown(cmp, k, _fill_pivot(node->pivotkeys, n - 1, &pivot));
+    int c = ft_compare_pivot_cutdown(cmp, k, _fill_pivot(&node->pivotkeys, n - 1, &pivot));
     if (c > 0) return n;
 
     // binary search the pivots
@@ -165,7 +165,7 @@ int toku_ftnode_which_child_cutdown(struct _ftnode *node, struct _dbt *k, struct
     int mi;
     while (lo < hi) {
         mi = (lo + hi) / 2;
-        c = ft_compare_pivot_cutdown(cmp, k, _fill_pivot(node->pivotkeys, mi, &pivot));
+        c = ft_compare_pivot_cutdown(cmp, k, _fill_pivot(&node->pivotkeys, mi, &pivot));
         if (c > 0) {
             lo = mi+1;
             continue;
@@ -272,5 +272,21 @@ void deserialize_from_rbuf_cutdown(_pivot_keys *pk, struct rbuf *rb, int n) {
 		memcpy(&pk->_dbt_keys[i], pivotkeyptr, size);
 		pk->_total_size += size;
 	}
+}
+
+void dump_ftnode_cutdown(struct _ftnode *nd) {
+	printk("============DUMPINGFTNODE=============\n");
+	printk("Max msn of node %d\n", nd->max_msn_applied_to_node_on_disk.msn);
+	printk("Flags: %u\n", nd->flags);
+	printk("Blocknum: %u\n", nd->blocknum.b);
+	printk("Layout version: %u\n", nd->layout_version);
+	printk("Layout version original: %u\n", nd->layout_version_original);
+	printk("Layout version read from disk: %u\n", nd->layout_version_read_from_disk);
+	printk("Build ID: %u\n", nd->build_id);
+	printk("Height: %u\n", nd->height);
+	printk("Dirty: %u\n", nd->dirty_);
+	printk("Fullhash: %u\n", nd->fullhash);
+	printk("Number of children: %u\n", nd->n_children);
+	printk("================DUMPED================\n");
 }
 

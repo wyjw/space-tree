@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <cstring>
 
+#define printk printf
+
 // node stuff
 // preliminaries for node
 typedef struct _msn { uint64_t msn; } _MSN;
@@ -66,7 +68,7 @@ struct _ftnode {
         return dirty_;
     }
     int n_children;
-    _pivot_keys *pivotkeys;
+    _pivot_keys pivotkeys;
     _TXNID oldest_referenced_xid_known;
 
     struct _ftnode_partition *bp;
@@ -238,6 +240,6 @@ int read_compressed_sub_block_cutdown(struct rbuf *rb, struct _sub_block *sb);
 int read_and_decompress_sub_block_cutdown(struct rbuf *rb, struct _sub_block *sb);
 void just_decompress_sub_block_cutdown(struct _sub_block *sb);
 void decompress_cutdown (_Bytef *dest, _uLongf destLen, const _Bytef *source, _uLongf sourceLen);
-
+void dump_ftnode_cutdown(struct _ftnode *nd);
 //inline void set_BNC_cutdown(struct _ftnode *node, int i, 
 #endif /* DBIN_H */
