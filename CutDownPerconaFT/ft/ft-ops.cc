@@ -4084,6 +4084,11 @@ maybe_search_save_bound(
     }
 }
 
+static void _clone_dbt(DBT *dst, struct _dbt *src) {
+	memcpy(dst->data, src->data, src->size);
+       	dst->size = src->size;	
+}
+
 static void
 maybe_search_save_bound_cutdown(
     struct _ftnode *node,
@@ -4093,7 +4098,7 @@ maybe_search_save_bound_cutdown(
     int p = (search->direction == FT_SEARCH_LEFT) ? child_searched : child_searched - 1;
     if (p >= 0 && p < node->n_children-1) {
         toku_destroy_dbt(&search->pivot_bound);
-        toku_clone_dbt(&search->pivot_bound, _get_pivot(node->pivotkeys, p));
+        _clone_dbt(&search->pivot_bound, _get_pivot(node->pivotkeys, p));
     }
 }
 
