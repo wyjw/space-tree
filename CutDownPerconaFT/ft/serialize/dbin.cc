@@ -287,6 +287,8 @@ void dump_ftnode_cutdown(struct _ftnode *nd) {
 	printk("Dirty: %u\n", nd->dirty_);
 	printk("Fullhash: %u\n", nd->fullhash);
 	printk("Number of children: %u\n", nd->n_children);
+	printk("Ctpair count is: %u\n", nd->ct_pair->count);
+	printk("Cache fd: %u\n", nd->ct_pair->cf->fd);
 	printk("================DUMPED================\n");
 }
 

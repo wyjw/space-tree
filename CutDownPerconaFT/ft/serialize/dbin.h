@@ -29,6 +29,7 @@ struct cachefile;
 typedef struct cachefile *CACHEFILE;
 struct __toku_db;
 typedef struct __toku_db DB;
+struct ctpair;
 
 #define RBUFDEF 1
 struct rbuf {
@@ -241,5 +242,66 @@ int read_and_decompress_sub_block_cutdown(struct rbuf *rb, struct _sub_block *sb
 void just_decompress_sub_block_cutdown(struct _sub_block *sb);
 void decompress_cutdown (_Bytef *dest, _uLongf destLen, const _Bytef *source, _uLongf sourceLen);
 void dump_ftnode_cutdown(struct _ftnode *nd);
+
+struct ctpair {
+    CACHEFILE cachefile;
+    CACHEKEY key;
+    uint32_t fullhash;
+    CACHETABLE_FLUSH_CALLBACK flush_callback;
+    CACHETABLE_PARTIAL_EVICTION_EST_CALLBACK pe_est_callback;
+    CACHETABLE_PARTIAL_EVICTION_CALLBACK pe_callback;
+    CACHETABLE_CLEANER_CALLBACK cleaner_callback;
+    CACHETABLE_CLONE_CALLBACK clone_callback;
+    CACHETABLE_CHECKPOINT_COMPLETE_CALLBACK checkpoint_complete_callback;
+    void *write_extraargs;
+    void* cloned_value_data;
+    long cloned_value_size;
+    void* disk_data;
+    void* value_data;
+    PAIR_ATTR attr;
+    enum cachetable_dirty dirty;
+    uint32_t count;
+    uint32_t refcount;
+    uint32_t num_waiting_on_refs;
+    toku_cond_t refcount_wait;
+    toku::frwlock value_rwlock;
+    struct nb_mutex disk_nb_mutex;
+    toku_mutex_t* mutex;
+    bool checkpoint_pending;
+    long size_evicting_estimate;
+    evictor* ev;
+    pair_list* list;
+    PAIR clock_next, clock_prev;
+    PAIR hash_chain;
+    PAIR pending_next;
+    PAIR pending_prev;
+    PAIR cf_next;
+    PAIR cf_prev;
+};
+
+struct cachefile {
+    PAIR cf_head;
+    uint32_t num_pairs;
+    bool for_checkpoint;
+    bool unlink_on_close;
+    bool skip_log_recover_on_close;
+    int fd;
+    CACHETABLE cachetable;
+    struct fileid fileid;
+    FILENUM filenum;
+    uint32_t hash_id;
+    char *fname_in_env;
+
+    void *userdata;
+    void (*log_fassociate_during_checkpoint)(CACHEFILE cf, void *userdata); 
+    void (*close_userdata)(CACHEFILE cf, int fd, void *userdata, bool lsnvalid, LSN);
+    void (*free_userdata)(CACHEFILE cf, void *userdata);
+    void (*begin_checkpoint_userdata)(LSN lsn_of_checkpoint, void *userdata);
+    void (*checkpoint_userdata)(CACHEFILE cf, int fd, void *userdata);
+    void (*end_checkpoint_userdata)(CACHEFILE cf, int fd, void *userdata);
+    void (*note_pin_by_checkpoint)(CACHEFILE cf, void *userdata);
+    void (*note_unpin_by_checkpoint)(CACHEFILE cf, void *userdata);
+    BACKGROUND_JOB_MANAGER bjm;
+}
 //inline void set_BNC_cutdown(struct _ftnode *node, int i, 
 #endif /* DBIN_H */
