@@ -2,7 +2,7 @@ FTDIR = /home/ywu/ddp/userspace_tree
 # FTDIR = /home/space-tree
 
 CC=clang++
-CFLAGS= -I$(FTDIR)/CutDownPerconaFT/build/buildheader/ -I$(FTDIR)/CutDownPerconaFT/build/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/portability/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/ft/ -I$(FTDIR)/CutDownPerconaFT/portability -I$(FTDIR)/CutDownPerconaFT -I$(FTDIR)/CutDownPerconaFT/prefix/include/util/ -I$(FTDIR)/CutDownPerconaFT/util/
+CFLAGS= -I$(FTDIR)/CutDownPerconaFT/build/buildheader/ -I$(FTDIR)/CutDownPerconaFT/build/ -I$(FTDIR)/CutDownPerconaFT/build/portability/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/portability/ -I$(FTDIR)/CutDownPerconaFT/prefix/include/ft/ -I$(FTDIR)/CutDownPerconaFT/portability -I$(FTDIR)/CutDownPerconaFT -I$(FTDIR)/CutDownPerconaFT/prefix/include/util/ -I$(FTDIR)/CutDownPerconaFT/util/
 LIBS = -L$(FTDIR)/CutDownPerconaFT/build/ft/ -L$(FTDIR)/CutDownPerconaFT/build/portability/
 
 all: ftstar ftstar2 ftstar4 ftread ftreadnob ftsimple ftverify ftverify2
