@@ -451,7 +451,7 @@ toku_pin_ftnode_with_dep_nodes_cutdown(
     PAIR dependent_pairs[num_dependent_nodes];
     enum cachetable_dirty dependent_dirty_bits[num_dependent_nodes];
     for (uint32_t i = 0; i < num_dependent_nodes; i++) {
-        dependent_pairs[i] = dependent_nodes[i]->ct_pair;
+        dependent_pairs[i] = (PAIR)&dependent_nodes[i]->ct_pair;
         dependent_dirty_bits[i] = (enum cachetable_dirty) dependent_nodes[i]->dirty();
     }
 
@@ -527,7 +527,7 @@ toku_unpin_ftnode_read_only(FT ft, FTNODE node)
 void toku_unpin_ftnode_cutdown(FT ft, struct _ftnode *node) {
      
     int r = toku_cachetable_unpin_cutdown(ft->cf,
-                                  node->ct_pair,
+                                  (PAIR)&node->ct_pair,
                                   static_cast<enum cachetable_dirty>(node->dirty()),
                                   make_ftnode_pair_attr_cutdown(node));
     invariant_zero(r);
@@ -538,7 +538,7 @@ toku_unpin_ftnode_read_only_cutdown(FT ft, struct _ftnode *node)
 {
     int r = toku_cachetable_unpin(
         ft->cf,
-        node->ct_pair,
+        (PAIR)&node->ct_pair,
         (enum cachetable_dirty) node->dirty(),
         make_invalid_pair_attr()
         );

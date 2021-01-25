@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <cstring>
 
+#include <pthread.h>
 #define printk printf
 
 // node stuff
@@ -73,7 +74,7 @@ struct _ftnode {
     _TXNID oldest_referenced_xid_known;
 
     struct _ftnode_partition *bp;
-    struct ctpair *ct_pair;
+    struct _ctpair *ct_pair;
 };
 typedef char _Bytef;
 typedef unsigned long int _uLongf;
@@ -132,7 +133,6 @@ typedef struct _ftnode_child_pointer {
 	enum _ftnode_child_tag tag;
 } _FTNODE_CHILD_POINTER;
 
-
 struct _ftnode_partition {
     _BLOCKNUM     blocknum; // blocknum of child 
     uint64_t     workdone;
@@ -140,7 +140,6 @@ struct _ftnode_partition {
     enum _pt_state state; // make this an enum to make debugging easier.  
     uint8_t clock_count;
 };
-
 
 struct _ancestors {
 	struct _ftnode *node;
@@ -156,7 +155,6 @@ typedef struct _pair_attr_s {
 	long cache_pressure_size;
 	bool is_valid;
 } _PAIR_ATTR;
-
 
 // search structs
 enum _ft_search_direction_e {
@@ -243,65 +241,224 @@ void just_decompress_sub_block_cutdown(struct _sub_block *sb);
 void decompress_cutdown (_Bytef *dest, _uLongf destLen, const _Bytef *source, _uLongf sourceLen);
 void dump_ftnode_cutdown(struct _ftnode *nd);
 
-struct ctpair {
-    CACHEFILE cachefile;
-    CACHEKEY key;
-    uint32_t fullhash;
-    CACHETABLE_FLUSH_CALLBACK flush_callback;
-    CACHETABLE_PARTIAL_EVICTION_EST_CALLBACK pe_est_callback;
-    CACHETABLE_PARTIAL_EVICTION_CALLBACK pe_callback;
-    CACHETABLE_CLEANER_CALLBACK cleaner_callback;
-    CACHETABLE_CLONE_CALLBACK clone_callback;
-    CACHETABLE_CHECKPOINT_COMPLETE_CALLBACK checkpoint_complete_callback;
-    void *write_extraargs;
-    void* cloned_value_data;
-    long cloned_value_size;
-    void* disk_data;
-    void* value_data;
-    PAIR_ATTR attr;
-    enum cachetable_dirty dirty;
-    uint32_t count;
-    uint32_t refcount;
-    uint32_t num_waiting_on_refs;
-    toku_cond_t refcount_wait;
-    toku::frwlock value_rwlock;
-    struct nb_mutex disk_nb_mutex;
-    toku_mutex_t* mutex;
-    bool checkpoint_pending;
-    long size_evicting_estimate;
-    evictor* ev;
-    pair_list* list;
-    PAIR clock_next, clock_prev;
-    PAIR hash_chain;
-    PAIR pending_next;
-    PAIR pending_prev;
-    PAIR cf_next;
-    PAIR cf_prev;
+struct _ctpair;
+typedef struct _cachetable *_CACHETABLE;
+typedef struct _cachefile *_CACHEFILE;
+typedef struct _ctpair *_PAIR;
+
+struct _FILENUM { 
+	uint32_t fileid;
 };
 
-struct cachefile {
-    PAIR cf_head;
+struct _psi_mutex {};
+
+struct _mutex_t {
+	pthread_mutex_t pmutex;
+	struct _psi_mutex *psi_mutex;
+};
+
+struct _cond_t {
+	pthread_cond_t pcond;
+};
+
+struct _mutex_aligned {
+	_mutex_t aligned_mutex __attribute__((__aligned__(64)));
+};
+
+#include <sys/stat.h>
+struct _fileid {
+	dev_t st_dev;
+	ino_t st_ino;	
+};
+
+typedef struct background_job_manager_struct {
+	bool accepting_jobs;
+	uint32_t num_jobs;
+	_cond_t jobs_wait;
+	_mutex_t jobs_lock;
+} _BACKGROUND_JOB_MANAGER;
+
+typedef _BLOCKNUM _CACHEKEY;
+typedef struct __lsn { uint64_t lsn; } _LSN;
+struct cachetable;
+typedef cachetable *CACHETABLE;
+struct _evictor;
+
+struct _cachefile {
+    _PAIR cf_head;
     uint32_t num_pairs;
     bool for_checkpoint;
     bool unlink_on_close;
     bool skip_log_recover_on_close;
     int fd;
     CACHETABLE cachetable;
-    struct fileid fileid;
-    FILENUM filenum;
+    struct _fileid fileid;
+    _FILENUM filenum;
     uint32_t hash_id;
     char *fname_in_env;
 
     void *userdata;
     void (*log_fassociate_during_checkpoint)(CACHEFILE cf, void *userdata); 
-    void (*close_userdata)(CACHEFILE cf, int fd, void *userdata, bool lsnvalid, LSN);
+    void (*close_userdata)(CACHEFILE cf, int fd, void *userdata, bool lsnvalid, _LSN);
     void (*free_userdata)(CACHEFILE cf, void *userdata);
-    void (*begin_checkpoint_userdata)(LSN lsn_of_checkpoint, void *userdata);
+    void (*begin_checkpoint_userdata)(_LSN lsn_of_checkpoint, void *userdata);
     void (*checkpoint_userdata)(CACHEFILE cf, int fd, void *userdata);
     void (*end_checkpoint_userdata)(CACHEFILE cf, int fd, void *userdata);
     void (*note_pin_by_checkpoint)(CACHEFILE cf, void *userdata);
     void (*note_unpin_by_checkpoint)(CACHEFILE cf, void *userdata);
-    BACKGROUND_JOB_MANAGER bjm;
-}
+    _BACKGROUND_JOB_MANAGER bjm;
+};
+
+// definitions of all the callbacks
+
+enum _cachetable_dirty {
+	_CACHETABLE_CLEAN = 0,
+	_CACHETABLE_DIRTY = 1,
+};
+
+enum _context_id {
+	_CTX_INVALID = -1,
+	_CTX_DEFAULT = 0,
+	_CTX_SEARCH,
+	_CTX_PROMO,
+	_CTX_FULL_FETCH,
+	_CTX_PARTIAL_FETCH,
+	_CTX_FULL_EVICTION,
+	_CTX_PARTIAL_EVICTION,
+	_CTX_MESSAGE_INJECTION,
+	_CTX_MESSAGE_APPLICATION,
+	_CTX_FLUSH,
+	_CTX_CLEANER
+};
+
+struct _frwlock {
+	struct queue_item {
+		_cond_t *cond;
+		struct queue_item *next;
+	};
+	_mutex_t *m_mutex;
+	uint32_t m_num_readers;
+	uint32_t m_num_writers;
+	uint32_t m_num_want_write;
+	uint32_t m_num_want_read;
+	uint32_t m_num_signaled_readers;
+	uint32_t m_num_expensive_want_write;
+	bool m_current_writer_expensive;
+	bool m_read_wait_experience;
+	int m_current_writer_tid;
+	_context_id m_blocking_writer_context_id;
+	struct queue_item m_queue_item_read;
+	bool m_wait_read_is_in_queue;
+	_cond_t m_wait_read;
+	struct queue_item *m_wait_head;
+	struct queue_item *m_wait_tail;
+};
+
+enum _partial_eviction_cost {
+	_PE_CHEAP = 0,
+	_PE_EXPENSIVE = 1,
+};
+
+// Definition of all the callbacks
+typedef void (*_CACHETABLE_FLUSH_CALLBACK)(CACHEFILE, int fd, _CACHEKEY key, void *value, void **disk_data, void *write_extraargs, _PAIR_ATTR size, _PAIR_ATTR* new_size, bool write_me, bool keep_me, bool for_checkpoint, bool is_clone);
+
+typedef int (*_CACHETABLE_FETCH_CALLBACK)(CACHEFILE, _PAIR p, int fd, _CACHEKEY key, uint32_t fullhash, void **value_data, void **disk_data, _PAIR_ATTR *sizep, int *dirtyp, void *read_extraargs);
+
+typedef void (*_CACHETABLE_PARTIAL_EVICTION_EST_CALLBACK)(void *ftnode_pv, void* disk_data, long* bytes_freed_estimate, enum _partial_eviction_cost *cost, void *write_extraargs);
+
+typedef int (*_CACHETABLE_PARTIAL_EVICTION_CALLBACK)(void *ftnode_pv, _PAIR_ATTR old_attr, void *write_extraargs, void (*finalize)(_PAIR_ATTR new_attr, void *extra), void *finalize_extra);
+
+typedef bool (*_CACHETABLE_PARTIAL_FETCH_REQUIRED_CALLBACK)(void *ftnode_pv, void *read_extraargs);
+
+typedef int (*_CACHETABLE_PARTIAL_FETCH_CALLBACK)(void *value_data, void* disk_data, void *read_extraargs, int fd, _PAIR_ATTR *sizep);
+
+typedef void (*_CACHETABLE_PUT_CALLBACK)(_CACHEKEY key, void *value_data, _PAIR p);
+
+typedef int (*_CACHETABLE_CLEANER_CALLBACK)(void *ftnode_pv, _BLOCKNUM blocknum, uint32_t fullhash, void *write_extraargs);
+
+typedef void (*_CACHETABLE_CLONE_CALLBACK)(void* value_data, void** cloned_value_data, long* clone_size, _PAIR_ATTR* new_attr, bool for_checkpoint, void* write_extraargs);
+
+typedef void (*_CACHETABLE_CHECKPOINT_COMPLETE_CALLBACK)(void *value_data);
+
+typedef struct {
+	_CACHETABLE_FLUSH_CALLBACK flush_callback;
+	_CACHETABLE_PARTIAL_EVICTION_EST_CALLBACK pe_est_callback;
+	_CACHETABLE_PARTIAL_EVICTION_CALLBACK pe_callback;
+	_CACHETABLE_CLEANER_CALLBACK cleaner_callback;
+	_CACHETABLE_CLONE_CALLBACK clone_callback;
+	_CACHETABLE_CHECKPOINT_COMPLETE_CALLBACK checkpoint_complete_callback;
+	void *write_extraargs;
+} _CACHETABLE_WRITE_CALLBACK;
+
+struct _pthread_rwlock_t {
+	pthread_rwlock_t rwlock;
+};
+
+typedef struct _pair_list_cutdown {
+	uint32_t m_n_in_table;
+	uint32_t m_table_size;
+	uint32_t m_num_locks;
+	_PAIR *m_table;
+	_mutex_aligned *m_mutexes;
+	_PAIR m_clock_head;
+	_PAIR m_cleaner_head;
+	_PAIR m_checkpoint_head;
+	_PAIR m_pending_head;
+
+	_pthread_rwlock_t m_list_lock;
+	_pthread_rwlock_t m_pending_lock_expensive;
+	_pthread_rwlock_t m_pending_lock_cheap;	
+} _pair_list;
+
+struct _st_rwlock {
+	int reader;
+	int want_read;
+	_cond_t wait_read;
+	int writer;
+	int want_write;
+	_cond_t wait_write;
+	_cond_t *wait_users_go_to_zero; 
+};
+
+struct _nb_mutex {
+	struct _st_rwlock lock;
+};
+
+struct _ctpair {
+    CACHEFILE cachefile;
+    _CACHEKEY key;
+    uint32_t fullhash;
+    _CACHETABLE_FLUSH_CALLBACK flush_callback;
+    _CACHETABLE_PARTIAL_EVICTION_EST_CALLBACK pe_est_callback;
+    _CACHETABLE_PARTIAL_EVICTION_CALLBACK pe_callback;
+    _CACHETABLE_CLEANER_CALLBACK cleaner_callback;
+    _CACHETABLE_CLONE_CALLBACK clone_callback;
+    _CACHETABLE_CHECKPOINT_COMPLETE_CALLBACK checkpoint_complete_callback;
+    void *write_extraargs;
+    void* cloned_value_data;
+    long cloned_value_size;
+    void* disk_data;
+    void* value_data;
+    _PAIR_ATTR attr;
+    enum _cachetable_dirty dirty;
+    uint32_t count;
+    uint32_t refcount;
+    uint32_t num_waiting_on_refs;
+    _cond_t refcount_wait;
+    _frwlock value_rwlock;
+    struct _nb_mutex disk_nb_mutex;
+    _mutex_t* mutex;
+    bool checkpoint_pending;
+    long size_evicting_estimate;
+    struct _evictor* ev;
+    _pair_list* list_;
+    _PAIR clock_next, clock_prev;
+    _PAIR hash_chain;
+    _PAIR pending_next;
+    _PAIR pending_prev;
+    _PAIR cf_next;
+    _PAIR cf_prev;
+};
+
 //inline void set_BNC_cutdown(struct _ftnode *node, int i, 
 #endif /* DBIN_H */
