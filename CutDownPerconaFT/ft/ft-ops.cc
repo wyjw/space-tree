@@ -202,6 +202,10 @@ static FTNODE cast_from__ftnode(struct _ftnode *nd) {
         return (struct ftnode *)&*nd;
 }
 
+static struct _ctpair *cast_from_ctpair(PAIR cp) {
+	        return (struct _ctpair *)&(*cp);
+}
+
 static toku_mutex_t ft_open_close_lock;
 static toku_instr_key *ft_open_close_lock_mutex_key;
 // FIXME: the instrumentation keys below are defined here even though they
@@ -869,14 +873,14 @@ int toku_ftnode_fetch_callback(CACHEFILE UU(cachefile),
         abort();
     }
 
-    /*
+    
     if (r == 0) {
-        *sizep = make_ftnode_pair_attr(*node);
-        (*node)->ct_pair = p;
+        *sizep = make_ftnode_pair_attr(cast_from__ftnode(*node));
+        (*node)->ct_pair = cast_from_ctpair(p);
         *dirtyp = (*node)->dirty();  // deserialize could mark the node as dirty
                                      // (presumably for upgrade)
     }
-    */
+    
     return r;
 }
 
@@ -3974,7 +3978,7 @@ ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum,
         invariant_zero(rr);
     }
 
-    struct unlock_ftnode_extra unlock_extra = { ft_handle, (FTNODE)&childnode, msgs_applied };
+    struct unlock_ftnode_extra unlock_extra = { ft_handle, cast_from__ftnode(childnode), msgs_applied };
     struct unlockers next_unlockers = { true, unlock_ftnode_fun, (void *) &unlock_extra, unlockers };
     int r = ft_search_node_cutdown(ft_handle, childnode, search, bfe.child_to_read, getf, getf_v, doprefetch, ftcursor, &next_unlockers, &next_ancestors, bounds, can_bulk_fetch);
     if (r!=TOKUDB_TRY_AGAIN) {
@@ -3985,10 +3989,10 @@ ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum,
 
         assert(next_unlockers.locked);
         if (msgs_applied) {
-            toku_unpin_ftnode(ft_handle->ft, (FTNODE)&childnode);
+            toku_unpin_ftnode(ft_handle->ft, cast_from__ftnode(childnode));
         }
         else {
-            toku_unpin_ftnode_read_only(ft_handle->ft, (FTNODE)&childnode);
+            toku_unpin_ftnode_read_only(ft_handle->ft, cast_from__ftnode(childnode));
         }
     } else {
         // try again.
@@ -4001,10 +4005,10 @@ ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum,
         //  the node was not unpinned, so we unpin it here
         if (next_unlockers.locked) {
             if (msgs_applied) {
-                toku_unpin_ftnode(ft_handle->ft, (FTNODE)&childnode);
+                toku_unpin_ftnode(ft_handle->ft, cast_from__ftnode(childnode));
             }
             else {
-                toku_unpin_ftnode_read_only(ft_handle->ft, (FTNODE)&childnode);
+                toku_unpin_ftnode_read_only(ft_handle->ft, cast_from__ftnode(childnode));
             }
         }
     }

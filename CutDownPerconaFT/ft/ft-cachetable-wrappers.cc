@@ -46,6 +46,10 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #include <util/context.h>
 
+static PAIR cast_from__ctpair(struct _ctpair *cp) {
+	return (struct ctpair *)&(*cp);
+}
+
 static void
 ftnode_get_key_and_fullhash(
     BLOCKNUM* cachekey,
@@ -527,7 +531,7 @@ toku_unpin_ftnode_read_only(FT ft, FTNODE node)
 void toku_unpin_ftnode_cutdown(FT ft, struct _ftnode *node) {
      
     int r = toku_cachetable_unpin_cutdown(ft->cf,
-                                  (PAIR)&node->ct_pair,
+                                  cast_from__ctpair(node->ct_pair),
                                   static_cast<enum cachetable_dirty>(node->dirty()),
                                   make_ftnode_pair_attr_cutdown(node));
     invariant_zero(r);
@@ -538,7 +542,7 @@ toku_unpin_ftnode_read_only_cutdown(FT ft, struct _ftnode *node)
 {
     int r = toku_cachetable_unpin(
         ft->cf,
-        (PAIR)&node->ct_pair,
+        cast_from__ctpair(node->ct_pair),
         (enum cachetable_dirty) node->dirty(),
         make_invalid_pair_attr()
         );
