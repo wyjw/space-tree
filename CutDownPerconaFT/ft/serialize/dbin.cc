@@ -136,11 +136,12 @@ struct _dbt *_init_dbt(struct _dbt *dbt)
 	return dbt;
 }
 
-
+/*
 static inline struct _ftnode_nonleaf_childinfo _BNC(struct _ftnode* node, int i) {
 	struct _ftnode_child_pointer fcptr = node->bp[i].ptr;
 	return *fcptr.u.nonleaf; 
 }
+*/
 
 static int ft_compare_pivot_cutdown(const struct _comparator &cmp, _dbt *key,_dbt *pivot) {
     return cmp._cmp(key, pivot);
@@ -287,8 +288,45 @@ void dump_ftnode_cutdown(struct _ftnode *nd) {
 	printk("Dirty: %u\n", nd->dirty_);
 	printk("Fullhash: %u\n", nd->fullhash);
 	printk("Number of children: %u\n", nd->n_children);
-	printk("Ctpair count is: %u\n", nd->ct_pair->key.b);
-	printk("Cache fd: %u\n", nd->ct_pair->count);
+	printk("Pivot keys total size of: %u\n", nd->pivotkeys._total_size);
+	printk("Oldest reference xid known: %u\n", nd->oldest_referenced_xid_known);
+	printk("Ftnode partition of: %u\n", nd->bp->blocknum.b);
+	if (nd->ct_pair) {
+		printk("Ctpair count is: %u\n", nd->ct_pair->key.b);
+		printk("Cache fd: %u\n", nd->ct_pair->count);
+	}
+	else {
+		printk("Null ctpair.\n");
+	}
+	if (nd->bp)
+		dump_ftnode_partition(nd->bp);
 	printk("================DUMPED================\n");
+}
+
+void dump_ftnode_partition(struct _ftnode_partition *bp) {
+	printk("===========DUMPINGFTNODEPARTITION========\n");
+	printk("Blocknum is %u\n", bp->blocknum.b);
+	printk("Workdone is %u\n", bp->workdone);
+	printk("State is %u\n", bp->state);
+	dump_ftnode_child_ptr_cutdown(&bp->ptr);
+	printk("==================DUMPED==================\n");
+}
+
+void dump_sub_block(struct _sub_block *sb) {
+	printk("=============DUMPINGSUBBLOCK==============\n");
+	for (int i = 0; i < sb->uncompressed_size; i++) {
+		printk("%c", ((char *)(sb->uncompressed_ptr))[i]);
+	}		
+	printk("==========DUMPED=SUB=BLOCK================\n");	
+}
+
+void dump_ftnode_child_ptr_cutdown(_FTNODE_CHILD_POINTER *fcp) {
+	printk("===========DUMPINGFTNODECHILDPTR========\n");
+	printk("Subblock is at: %c\n", fcp->u.subblock->uncompressed_ptr);
+	printk("Subblock unc size is: %u\n", fcp->u.subblock->uncompressed_size);
+	printk("Compressed sz is at: %u\n", fcp->u.subblock->compressed_size);
+	if (fcp->tag)
+		printk("Child tag is: %u\n", fcp->tag);
+	printk("================DUMPED===================\n");
 }
 

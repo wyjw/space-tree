@@ -42,6 +42,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "ft/ft.h"
 #include "ft/msg_buffer.h"
 
+#define DEBUG 1
+
 /* Pivot keys.
  * Child 0's keys are <= pivotkeys[0]. 
  * Child 1's keys are <= pivotkeys[1]. 
@@ -554,10 +556,16 @@ static inline BASEMENTNODE BLB(FTNODE node, int i) {
     // i to n_children as signed integers. So we assert that
     // n_children is in fact positive before doing a comparison
     // on the values forcibly cast to unsigned ints.
+#ifdef DEBUG
+    printf("Number of children is %u\n", node->n_children);
+#endif
     paranoid_invariant(node->n_children > 0);
     paranoid_invariant((unsigned) i < (unsigned) node->n_children);
     FTNODE_CHILD_POINTER p = node->bp[i].ptr;
-    paranoid_invariant(p.tag==BCT_LEAF);
+    //paranoid_invariant(p.tag==BCT_LEAF);
+#ifdef DEBUG
+    printk("Tag of %u compared with %u\n", p.tag, BCT_LEAF);
+#endif
     return p.u.leaf;
 }
 

@@ -57,6 +57,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include "util/scoped_malloc.h"
 
 static FT_UPGRADE_STATUS_S ft_upgrade_status;
+static FTNODE cast_from__ftnode(struct _ftnode *nd);
+#define DEBUG 1
 
 #define STATUS_INIT(k,c,t,l,inc) TOKUFT_STATUS_INIT(ft_upgrade_status, k, c, t, "ft upgrade: " l, inc)
 
@@ -1320,18 +1322,20 @@ setup_available_ftnode_partition(FTNODE node, int i) {
 
 static void
 setup_available_ftnode_partition_cutdown(struct _ftnode *node, int i) {
-/*
     if (node->height == 0) {
-        set_BLB(node, i, toku_create_empty_bn());
-        BLB_MAX_MSN_APPLIED(node,i) = node->max_msn_applied_to_node_on_disk;
+        set_BLB(cast_from__ftnode(node), i, toku_create_empty_bn());
+	MSN m = { .msn = node->max_msn_applied_to_node_on_disk.msn };
+        BLB_MAX_MSN_APPLIED(cast_from__ftnode(node),i) = (MSN)m;
 #ifdef DEBUG
 	printk("Got into leaf node.\n");
 #endif
     }
     else {
-        set_BNC(node, i, toku_create_empty_nl());
+        set_BNC(cast_from__ftnode(node), i, toku_create_empty_nl());
     }
-*/
+#ifdef DEBUG
+	dump_ftnode_cutdown(node);
+#endif
 }
 // Assign the child_to_read member of the bfe from the given ftnode
 // that has been brought into memory.
@@ -1527,6 +1531,32 @@ exit:
     return r;
 }
 
+static void compare_ftnode_and__ftnode(FTNODE a, struct _ftnode *b) {
+	printk("Comparison testing!\n");
+	int i = 0;
+	if (a->max_msn_applied_to_node_on_disk.msn != b->max_msn_applied_to_node_on_disk.msn)
+		printk("Diff msn.\n");
+	if (a->flags != b->flags)
+		printk("Diff flags.\n");
+	if (a->blocknum.b != b->blocknum.b)
+		printk("Diff bnum.\n");
+	if (a->height != b->height)
+		printk("Diff height.\n");
+	if (a->layout_version != b->layout_version)
+		printk("Diff height.\n");
+	if (a->n_children != b->n_children)
+		printk("Diff n child.\n");
+	// check offsets
+	if (offsetof(struct ftnode, bp) != offsetof(struct _ftnode, bp))
+		printk("Offsets are off!\n");
+	if (offsetof(struct ftnode, pivotkeys) != offsetof(struct _ftnode, pivotkeys))
+		printk("Offsets are off!\n");
+}
+
+static FTNODE cast_from__ftnode(struct _ftnode *nd) {
+	return (struct ftnode *)&*nd;
+}
+
 static int deserialize_ftnode_partition_cutdown(
     struct sub_block *sb,
     struct _ftnode *node,
@@ -1538,12 +1568,18 @@ static int deserialize_ftnode_partition_cutdown(
     uint32_t data_size;
     data_size = sb->uncompressed_size - 4; // checksum is 4 bytes at end
 
+    //NOTE: Checksum stuff missing.
     // now with the data verified, we can read the information into the node
     struct rbuf rb;
     rbuf_init(&rb, (unsigned char *) sb->uncompressed_ptr, data_size);
     unsigned char ch;
     ch = rbuf_char(&rb);
 
+/*
+#ifdef DEBUG
+	dump_ftnode_child_ptr_cutdown(&node->bp->ptr);
+#endif
+*/
     if (node->height > 0) {
         if (ch != FTNODE_PARTITION_MSG_BUFFER) {
             fprintf(stderr,
@@ -1559,7 +1595,7 @@ static int deserialize_ftnode_partition_cutdown(
             dump_bad_block(rb.buf, rb.size);
             assert(ch == FTNODE_PARTITION_MSG_BUFFER);
         }
-       	struct ftnode_nonleaf_childinfo *bnc = BNC((FTNODE)&node, childnum);
+       	struct ftnode_nonleaf_childinfo *bnc = BNC(cast_from__ftnode(node), childnum);
         if (node->layout_version_read_from_disk <= FT_LAYOUT_VERSION_26) {
             // Layout version <= 26 did not serialize sorted message trees to disk.
             deserialize_child_buffer_v26(bnc, &rb, cmp);
@@ -1582,13 +1618,25 @@ static int deserialize_ftnode_partition_cutdown(
             dump_bad_block(rb.buf, rb.size);
             assert(ch == FTNODE_PARTITION_DMT_LEAVES);
         }
-
-        BLB_SEQINSERT((FTNODE)&node, childnum) = 0;
+	printk("Number of children at this point is %u\n", node->n_children);
+        printk("Did we even get here?\n");
+	struct ftnode hn;
+	memcpy(&hn, node, sizeof(struct ftnode));
+#ifdef DEBUG
+	printk("==================SIZECOMPARISON===============");
+	printk("Size is %u for _node and %u for node\n", sizeof(struct _ftnode), sizeof(struct ftnode));
+	printk("Num child is %u for _node and %u for node\n", (cast_from__ftnode(node))->n_children, node->n_children);
+	compare_ftnode_and__ftnode(cast_from__ftnode(node), node); 
+	//compare_ftnode_and__ftnode(&hn, node); 
+#endif
+        BLB_SEQINSERT(cast_from__ftnode(node), childnum) = 0;
         uint32_t num_entries = rbuf_int(&rb);
         // we are now at the first byte of first leafentry
+#ifdef DEBUG
+	dump_ftnode_cutdown(node);
+#endif
         data_size -= rb.ndone; // remaining bytes of leafentry data
-
-        BASEMENTNODE bn = BLB((FTNODE)&node, childnum);
+	BASEMENTNODE bn = BLB(cast_from__ftnode(node), childnum);
         bn->data_buffer.deserialize_from_rbuf(
             num_entries, &rb, data_size, node->layout_version_read_from_disk);
     }
@@ -1679,6 +1727,9 @@ static int decompress_and_deserialize_worker_cutdown(struct rbuf curr_rbuf,
         goto exit;
     }
     *decompress_time = toku_time_now() - t0;
+#ifdef DEBUG 
+    dump_sub_block(&curr_sb);
+#endif
     // at this point, sb->uncompressed_ptr stores the serialized node partition
     r = deserialize_ftnode_partition_cutdown((struct sub_block*)&curr_sb, node, child, cmp);
     if (r != 0) {
@@ -1733,7 +1784,7 @@ int check_and_copy_compressed_sub_block_worker_cutdown(struct rbuf curr_rbuf,
     }
 
     SUB_BLOCK bp_sb;
-    bp_sb = BSB((FTNODE)&node, child);
+    bp_sb = BSB(cast_from__ftnode(node), child);
     bp_sb->compressed_size = curr_sb.compressed_size;
     bp_sb->uncompressed_size = curr_sb.uncompressed_size;
     bp_sb->compressed_ptr = toku_xmalloc(bp_sb->compressed_size);
@@ -2782,11 +2833,20 @@ void sub_block_init_cutdown(struct _sub_block *sb) {
 	sb->xsum = 0;
 }
 
+inline const char* toku_ftnode_get_cachefile_fname_in_env_cutdown(struct _ftnode *node) {
+    if (node->ct_pair) {
+        CACHEFILE cf = toku_pair_get_cachefile((PAIR)&node->ct_pair);
+        if (cf) {
+            return toku_cachefile_fname_in_env(cf);
+        }
+    }
+    return nullptr;
+}
 
 int deserialize_ftnode_info_cutdown(struct _sub_block *sb, struct _ftnode *node) {
     int r = 0;
-    dump_ftnode_cutdown(node);  
-    const char *fname = toku_ftnode_get_cachefile_fname_in_env((FTNODE)&node);
+    dump_ftnode_cutdown(node);
+    const char *fname = toku_ftnode_get_cachefile_fname_in_env_cutdown(node);
 
     uint32_t data_size;
     data_size = sb->uncompressed_size - 4; // checksum is 4 bytes at end
@@ -2924,8 +2984,8 @@ void setup_ftnode_partitions_cutdown(struct _ftnode* node, ftnode_fetch_extra *b
 	int lc, rc;
 	if (bfe->type == ftnode_fetch_subset)
 	{
-		lc = bfe->leftmost_child_wanted((FTNODE)&node);
-		rc = bfe->rightmost_child_wanted((FTNODE)&node);
+		lc = bfe->leftmost_child_wanted(cast_from__ftnode(node));
+		rc = bfe->rightmost_child_wanted(cast_from__ftnode(node));
 	}
 
     	for (int i = 0; i < node->n_children; i++) {
@@ -3111,7 +3171,7 @@ static int deserialize_ftnode_from_rbuf_cutdown(struct _ftnode **ftnode,
             }
         case PT_COMPRESSED:
             // case where we leave the partition in the compressed state
-            r = check_and_copy_compressed_sub_block_worker(curr_rbuf, *(struct sub_block *)&curr_sb, (FTNODE)&node, i);
+            r = check_and_copy_compressed_sub_block_worker(curr_rbuf, *(struct sub_block *)&curr_sb, cast_from__ftnode(node), i);
                 fprintf(
                     stderr,
                     "%s:%d:deserialize_ftnode_from_rbuf - "
@@ -3134,7 +3194,7 @@ static int deserialize_ftnode_from_rbuf_cutdown(struct _ftnode **ftnode,
     }
     *ftnode = node;
     r = 0;
-
+    dump_ftnode_cutdown(node);  
 cleanup:
     if (r == 0) {
         //toku_ft_status_update_deserialize_times(node, deserialize_time, decompress_time);

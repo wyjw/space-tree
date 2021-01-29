@@ -198,6 +198,10 @@ void dump_ftnode(FTNODE node) {
 	}
 }
 
+static FTNODE cast_from__ftnode(struct _ftnode *nd) {
+        return (struct ftnode *)&*nd;
+}
+
 static toku_mutex_t ft_open_close_lock;
 static toku_instr_key *ft_open_close_lock_mutex_key;
 // FIXME: the instrumentation keys below are defined here even though they
@@ -3976,7 +3980,7 @@ ft_search_child_cutdown(FT_HANDLE ft_handle, struct _ftnode *node, int childnum,
     if (r!=TOKUDB_TRY_AGAIN) {
         // maybe prefetch the next child
         if (r == 0 && node->height == 1) {
-            ft_node_maybe_prefetch(ft_handle, (FTNODE)&node, childnum, ftcursor, doprefetch);
+            ft_node_maybe_prefetch(ft_handle, cast_from__ftnode(node), childnum, ftcursor, doprefetch);
         }
 
         assert(next_unlockers.locked);
@@ -4260,7 +4264,7 @@ ft_search_node_cutdown(
     // At this point, we must have the necessary partition available to continue the search
     //
     assert(BP_STATE(node,child_to_search) == PT_AVAIL);
-    const pivot_bounds next_bounds = bounds.next_bounds((FTNODE)&node, child_to_search);
+    const pivot_bounds next_bounds = bounds.next_bounds(cast_from__ftnode(node), child_to_search);
     if (node->height > 0) {
         r = ft_search_child_cutdown(
             ft_handle,
@@ -4279,7 +4283,7 @@ ft_search_node_cutdown(
     }
     else {
         r = ft_search_basement_node_cutdown(
-            BLB((FTNODE)&node, child_to_search),
+            BLB(cast_from__ftnode(node), child_to_search),
             search,
             getf,
             getf_v,

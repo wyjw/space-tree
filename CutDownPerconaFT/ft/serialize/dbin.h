@@ -108,6 +108,8 @@ enum _pt_state {
 	_PT_AVAIL = 3
 };
 
+struct ftnode_leaf_basement_node;
+
 /*
 struct _ftnode_leaf_basement_node {
 	bn_data data_buffer;
@@ -122,12 +124,10 @@ enum _ftnode_child_tag {
 	_BCT_NONLEAF
 };
 
-struct _ftnode_nonleaf_childinfo;
-
 typedef struct _ftnode_child_pointer {
 	union {
 		struct _sub_block *subblock;
-		struct _ftnode_nonleaf_childinfo *nonleaf;
+		struct ftnode_nonleaf_childinfo *nonleaf;
 		struct ftnode_leaf_basement_node *leaf;
 	} u;
 	enum _ftnode_child_tag tag;
@@ -217,6 +217,23 @@ struct __attribute__((__packed__)) _XIDS_S {
 };
 typedef struct _XIDS_S *_XIDS;
 
+struct _message_buffer {
+	struct __attribute__((__packed__)) buffer_entry {
+		unsigned int keylen;
+		unsigned int vallen;
+		unsigned char type;
+		bool is_fresh;
+		_MSN msn;
+		
+	};
+	int _num_entries;
+	char* memory;
+	int _memory_size;
+	int _memory_used;
+	size_t memory_usable;
+};
+
+/*
 struct __attribute__((__packed__)) buffer_entry {
 	unsigned int keylen;
 	unsigned int vallen;
@@ -224,15 +241,51 @@ struct __attribute__((__packed__)) buffer_entry {
 	bool is_fresh;
 	_MSN msn;	 
 };
+*/
+/*
+typedef omtdata_t;
+
+struct _omt_integer {
+	struct _omt_array {
+		uint32_t start_idx;
+		uint32_t num_values;
+		_omtdata_t *values;
+	};
+
+	struct _omt_tree {
+		_subtree root;
+		uint32_t free_idx;
+		_omt_node *nodes;	
+	};
+
+	bool is_array;
+	uint32_t capacity;
+	union {
+		struct _omt_array a;
+		struct _omt_tree b;
+	};
+}
+
+struct message_buffer;
+namespace toku {
+	template<typename omtdata_t,
+        typename omtdataout_t=omtdata_t,
+        bool supports_marks=false>
+	class omt;
+};
+//class toku::omt;
+typedef toku::omt<int32_t> off_omt_t;
+typedef toku::omt<int32_t, int32_t, true> marked_off_omt_t;
 
 struct _ftnode_nonleaf_childinfo {
-	int msg_buffer;
+	struct message_buffer msg_buffer;
 	// all these are broken
-	int broadcast_list;
-	int fresh_message_tree;
-       	int stale_message_tree;
-	uint64_t flow[2];	
+	off_omt_t broadcast_list;
+	marked_off_omt_t fresh_message_tree;
+	off_omt_t stale_message_tree;
+	uint64_t flow[2];
 };
+*/
 
 // compression declarations 
 int read_compressed_sub_block_cutdown(struct rbuf *rb, struct _sub_block *sb);
@@ -240,6 +293,9 @@ int read_and_decompress_sub_block_cutdown(struct rbuf *rb, struct _sub_block *sb
 void just_decompress_sub_block_cutdown(struct _sub_block *sb);
 void decompress_cutdown (_Bytef *dest, _uLongf destLen, const _Bytef *source, _uLongf sourceLen);
 void dump_ftnode_cutdown(struct _ftnode *nd);
+void dump_ftnode_child_ptr_cutdown(_FTNODE_CHILD_POINTER *fcp);
+void dump_ftnode_partition(struct _ftnode_partition *bp);
+void dump_sub_block(struct _sub_block *sb);
 
 struct _ctpair;
 typedef struct _cachetable *_CACHETABLE;
