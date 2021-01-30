@@ -8,10 +8,7 @@
 #
 #===------------------------------------------------------------------------===#
 
-"""
-A simple command line tool for dumping a source file using the Clang Index
-Library.
-"""
+from clang.cindex import Index, Config, CursorKind
 
 def get_diag_info(diag):
     return { 'severity' : diag.severity,
@@ -52,8 +49,32 @@ def get_info(node, depth=0):
              'definition id' : get_cursor_id(node.get_definition()),
              'children' : children }
 
+# Globals
+global struct_defs
+global class_defs
+
+struct_defs = {}
+class_defs = {}
+
+def get_struct(node, depth=0):
+    if opts.maxDepth is not None and depth >= opts.maxDepth:
+        children = None
+    else:
+        if node.is_definition() and node.kind == CursorKind.STRUCT_DECL:
+            struct_defs[node.spelling] = [node.extent.start, node.extent.end]
+        for c in node.get_children():
+            get_struct(c, depth+1)
+
+def get_class(node, depth=0):
+    if opts.maxDepth is not None and depth >= opts.maxDepth:
+        children = None
+    else:
+        if node.is_definition() and node.kind == CursorKind.CLASS_DECL:
+            class_defs[node.spelling] = [node.extent.start, node.extent.end]
+        for c in node.get_children():
+            get_struct(c, depth+1)
+
 def main():
-    from clang.cindex import Index, Config
     from pprint import pprint
 
     from optparse import OptionParser, OptionGroup
@@ -70,6 +91,7 @@ def main():
     parser.disable_interspersed_args()
     (opts, args) = parser.parse_args()
 
+    # set config library
     Config.set_library_file("/usr/lib/llvm-10/lib/libclang.so") 
     if len(args) == 0:
         parser.error('invalid number arguments')
@@ -79,8 +101,12 @@ def main():
     if not tu:
         parser.error("unable to load input")
 
+    #pprint(('nodes', get_info(tu.cursor)))
+    get_struct(tu.cursor)
+    get_class(tu.cursor)
+    pprint(struct_defs)
+    pprint(class_defs)
     pprint(('diags', [get_diag_info(d) for d in  tu.diagnostics]))
-    pprint(('nodes', get_info(tu.cursor)))
 
 if __name__ == '__main__':
     main()
