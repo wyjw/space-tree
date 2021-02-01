@@ -1,6 +1,6 @@
 ft/bndata.cc
 ft/bndata.h
-ft/comparator.h
+#ft/comparator.h
 ft/cursor.cc
 ft/cursor.h
 ft/ft-cachetable-wrappers.cc
