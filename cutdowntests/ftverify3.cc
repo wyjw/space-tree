@@ -52,7 +52,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 static TOKUTXN const null_txn = 0;
 static int fd = 0;
 
-#define TOKU_TEST_FILENAME "/dev/nvme0n1"
+//#define TOKU_TEST_FILENAME "/dev/nvme0n1"
+#define TOKU_TEST_FILENAME "/dev/treenvme0"
 
 // lambda function
 
@@ -150,6 +151,15 @@ static void test_inserts(void) {
     //invariant(ft->seqinsert_score == FT_SEQINSERT_SCORE_THRESHOLD);  	  
 #ifdef FLUSH
 	printf("Got here before second loop.\n");
+#endif
+
+#ifdef SYNC
+	struct treenvme_block_table tbl;
+	tbl.length_of_array = ft_h->blocktable._current.length_of_array;
+	tbl.smallest = { .b = ft_h->blocktable._current.smallest_never_used_blocknum.b };
+	tbl.next_head = { .b = 50 };
+	tbl.block_translation = (struct treenvme_block_translation_pair *)ft_h->blocktable._current.block_translation;	
+	ioctl(fd, TREENVME_IOCTL_REGISTER_BLOCKTABLE, tbl);	
 #endif
     // sync parts
     // struct treenvme_block_table tbl;
